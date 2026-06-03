@@ -1,0 +1,644 @@
+/* ============================================
+   style.css — スマホ用 薬品検索アプリ スタイル
+   ============================================ */
+
+/* ===== リセット & ベース ===== */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-primary: #0f1117;
+    --bg-secondary: #1a1d27;
+    --bg-card: #1e2130;
+    --bg-card-hover: #252840;
+    --bg-input: #14161e;
+    --border-color: rgba(255, 255, 255, 0.08);
+    --border-accent: rgba(99, 102, 241, 0.3);
+    --text-primary: #e8eaf0;
+    --text-secondary: #9ca3b0;
+    --text-muted: #636b7f;
+    --accent: #6366f1;
+    --accent-light: #818cf8;
+    --accent-glow: rgba(99, 102, 241, 0.25);
+    --success: #10b981;
+    --success-bg: rgba(16, 185, 129, 0.12);
+    --warning: #f59e0b;
+    --warning-bg: rgba(245, 158, 11, 0.12);
+    --danger: #ef4444;
+    --danger-bg: rgba(239, 68, 68, 0.12);
+    --info: #3b82f6;
+    --info-bg: rgba(59, 130, 246, 0.12);
+    --freq-excellent: #10b981;
+    --freq-good: #3b82f6;
+    --freq-low: #f59e0b;
+    --freq-none: #636b7f;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3);
+    --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+    --font: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html {
+    font-size: 15px;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    font-family: var(--font);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ===== ローディングスクリーン ===== */
+.loading-screen {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    transition: opacity 0.5s ease;
+}
+
+.loading-screen.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.loading-content {
+    text-align: center;
+}
+
+.loading-pill {
+    font-size: 3rem;
+    animation: bounce 1.2s ease-in-out infinite;
+}
+
+.loading-content h2 {
+    margin-top: 16px;
+    font-size: 1.3rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--accent-light), #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.loading-sub {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.loading-bar {
+    width: 160px;
+    height: 3px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 20px auto 0;
+}
+
+.loading-bar-inner {
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-light));
+    border-radius: 3px;
+    animation: loading-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
+}
+
+@keyframes loading-slide {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(400%); }
+}
+
+/* ===== トースト通知 ===== */
+.toast-container {
+    position: fixed;
+    top: calc(var(--safe-top) + 12px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 90%;
+    max-width: 400px;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 500;
+    backdrop-filter: blur(16px);
+    animation: toast-in 0.3s ease;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.toast.success { background: var(--success-bg); border: 1px solid rgba(16, 185, 129, 0.3); color: #6ee7b7; }
+.toast.error { background: var(--danger-bg); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; }
+.toast.warning { background: var(--warning-bg); border: 1px solid rgba(245, 158, 11, 0.3); color: #fcd34d; }
+.toast.info { background: var(--info-bg); border: 1px solid rgba(59, 130, 246, 0.3); color: #93c5fd; }
+
+.toast.fade-out {
+    animation: toast-out 0.3s ease forwards;
+}
+
+@keyframes toast-in {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toast-out {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-20px); }
+}
+
+/* ===== アプリ ===== */
+.app {
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+}
+
+.app.hidden {
+    display: none;
+}
+
+/* ===== ヘッダー ===== */
+.app-header {
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    padding: calc(var(--safe-top) + 12px) 16px 10px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+}
+
+.header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.header-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, var(--text-primary), var(--accent-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.header-icon {
+    font-size: 1.3rem;
+    -webkit-text-fill-color: initial;
+}
+
+.header-badge {
+    font-size: 0.7rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: var(--accent-glow);
+    color: var(--accent-light);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.data-info {
+    margin-top: 6px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    min-height: 1rem;
+}
+
+/* ===== メインコンテンツ ===== */
+.main-content {
+    flex: 1;
+    padding: 16px;
+    padding-bottom: calc(var(--safe-bottom) + 24px);
+}
+
+/* ===== 検索エリア ===== */
+.search-area {
+    position: relative;
+    margin-bottom: 16px;
+}
+
+.search-box-wrapper {
+    display: flex;
+    gap: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 6px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-box-wrapper:focus-within {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-glow);
+}
+
+.search-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-family: var(--font);
+    padding: 10px 12px;
+}
+
+.search-input::placeholder {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.search-btn {
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 1.1rem;
+    width: 48px;
+    height: 44px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s, box-shadow 0.15s;
+    flex-shrink: 0;
+}
+
+.search-btn:active {
+    transform: scale(0.92);
+}
+
+/* ===== オートコンプリート ===== */
+.autocomplete-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--radius-sm);
+    max-height: 260px;
+    overflow-y: auto;
+    z-index: 200;
+    margin-top: 4px;
+    box-shadow: var(--shadow-card);
+}
+
+.autocomplete-list.hidden {
+    display: none;
+}
+
+.autocomplete-item {
+    padding: 12px 16px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.1s;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.autocomplete-item:active,
+.autocomplete-item.active {
+    background: var(--accent-glow);
+}
+
+.ac-match {
+    color: var(--accent-light);
+    font-weight: 600;
+}
+
+/* ===== 検索結果 ===== */
+.results-header {
+    margin-bottom: 10px;
+}
+
+.results-count {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+/* 結果カード */
+.result-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    margin-bottom: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.result-card.expanded {
+    border-color: var(--border-accent);
+}
+
+.result-header {
+    padding: 14px 16px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.result-header:active {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.result-title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.result-drug-name {
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.4;
+    flex: 1;
+    word-break: break-all;
+}
+
+.result-toggle {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    padding: 2px;
+    transition: transform 0.2s;
+}
+
+.result-card.expanded .result-toggle {
+    transform: rotate(180deg);
+}
+
+.result-meta {
+    display: flex;
+    gap: 12px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    flex-wrap: wrap;
+}
+
+.meta-stock {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.72rem;
+}
+
+.meta-stock.has-many {
+    background: var(--success-bg);
+    color: #6ee7b7;
+}
+
+.meta-stock.has-some {
+    background: var(--warning-bg);
+    color: #fcd34d;
+}
+
+.meta-stock.has-none {
+    background: var(--danger-bg);
+    color: #fca5a5;
+}
+
+/* 結果ボディ（店舗一覧） */
+.result-body {
+    border-top: 1px solid var(--border-color);
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.result-card.expanded .result-body {
+    max-height: 2000px;
+}
+
+.store-list {
+    padding: 4px 0;
+}
+
+.store-row {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    gap: 8px;
+}
+
+.store-row:last-child {
+    border-bottom: none;
+}
+
+.store-row.has-stock {
+    background: rgba(16, 185, 129, 0.04);
+}
+
+.store-row.no-stock {
+    opacity: 0.5;
+}
+
+.store-name {
+    flex: 1;
+    font-weight: 500;
+}
+
+.store-stock-badge {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.store-stock-badge.in-stock {
+    background: var(--success-bg);
+    color: #6ee7b7;
+}
+
+.store-stock-badge.out-stock {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted);
+}
+
+.store-freq {
+    font-size: 0.8rem;
+    font-weight: 600;
+    min-width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.freq-excellent { color: var(--freq-excellent); }
+.freq-good { color: var(--freq-good); }
+.freq-low { color: var(--freq-low); }
+.freq-none { color: var(--freq-none); }
+
+/* ===== ウェルカム画面 ===== */
+.welcome-area,
+.no-data-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 20px;
+}
+
+.welcome-area.hidden,
+.no-data-area.hidden {
+    display: none;
+}
+
+.results-area.hidden {
+    display: none;
+}
+
+.welcome-icon,
+.no-data-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    opacity: 0.6;
+}
+
+.welcome-text,
+.no-data-text {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+    line-height: 1.6;
+}
+
+.welcome-sub,
+.no-data-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+}
+
+/* ===== ドロップゾーン（モバイル） ===== */
+.drop-zone-mobile {
+    margin-top: 20px;
+    padding: 24px;
+    border: 2px dashed rgba(99, 102, 241, 0.3);
+    border-radius: var(--radius);
+    background: rgba(99, 102, 241, 0.05);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    width: 100%;
+    max-width: 320px;
+}
+
+.drop-zone-mobile:active {
+    border-color: var(--accent);
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.drop-zone-mobile.dragover {
+    border-color: var(--accent);
+    background: rgba(99, 102, 241, 0.15);
+}
+
+.drop-zone-mobile p {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.file-status {
+    margin-top: 12px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    min-height: 1.2rem;
+}
+
+.file-status.success { color: #6ee7b7; }
+.file-status.error { color: #fca5a5; }
+
+/* ===== 空の検索結果 ===== */
+.empty-results {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+}
+
+.empty-results .empty-icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+    opacity: 0.5;
+}
+
+.empty-results p {
+    font-size: 0.9rem;
+}
+
+/* ===== スクロールバー ===== */
+::-webkit-scrollbar {
+    width: 4px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+/* ===== レスポンシブ (タブレット以上) ===== */
+@media (min-width: 600px) {
+    .main-content {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 24px;
+    }
+
+    .search-input {
+        font-size: 1.05rem;
+    }
+
+    .result-drug-name {
+        font-size: 1rem;
+    }
+}

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="薬局在庫の簡易検索ツール — どの店舗に在庫があるかを素早く確認">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>💊 薬のお引越し — 在庫検索</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <!-- ========== ローディングスクリーン ========== -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-pill">💊</div>
+            <h2>薬のお引越し</h2>
+            <p class="loading-sub">在庫検索を読み込み中...</p>
+            <div class="loading-bar">
+                <div class="loading-bar-inner"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== トースト通知 ========== -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- ========== メインアプリ ========== -->
+    <div id="app" class="app hidden">
+
+        <!-- ===== ヘッダー ===== -->
+        <header class="app-header">
+            <div class="header-inner">
+                <h1 class="header-title">
+                    <span class="header-icon">💊</span>
+                    薬のお引越し
+                </h1>
+                <span class="header-badge">在庫検索</span>
+            </div>
+            <div class="data-info" id="data-info"></div>
+        </header>
+
+        <!-- ===== 検索エリア ===== -->
+        <main class="main-content">
+            <div class="search-area">
+                <div class="search-box-wrapper">
+                    <input type="text" id="search-input" class="search-input"
+                           placeholder="薬品名を入力（例: アムロジピン）" autocomplete="off">
+                    <button class="search-btn" id="btn-search">🔍</button>
+                </div>
+                <div class="autocomplete-list hidden" id="autocomplete-list"></div>
+            </div>
+
+            <!-- ===== 検索結果 ===== -->
+            <div id="results-area" class="hidden">
+                <div class="results-header">
+                    <span class="results-count" id="results-count"></span>
+                </div>
+                <div id="results-list"></div>
+            </div>
+
+            <!-- ===== 初期メッセージ ===== -->
+            <div id="welcome-area" class="welcome-area">
+                <div class="welcome-icon">🔎</div>
+                <p class="welcome-text">薬品名を入力して<br>在庫のある店舗を検索できます</p>
+                <p class="welcome-sub">在庫の「有無」と「出庫頻度」が確認できます</p>
+            </div>
+
+            <!-- ===== データ未読み込み時 ===== -->
+            <div id="no-data-area" class="no-data-area hidden">
+                <div class="no-data-icon">📥</div>
+                <p class="no-data-text">データが読み込まれていません</p>
+                <p class="no-data-sub">管理者が出力した shared-data-mobile.json を<br>以下から読み込んでください</p>
+                <div class="drop-zone-mobile" id="drop-zone-mobile">
+                    <p>📥 ファイルをタップして選択<br>またはドラッグ＆ドロップ</p>
+                    <input type="file" accept=".json" id="file-mobile-import" hidden>
+                </div>
+                <div class="file-status" id="status-mobile-import"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+
+</html>
