@@ -60,12 +60,18 @@
 
             <!-- ===== 表示モード選択 ＆ 店舗フィルター ===== -->
             <div class="filter-toggle-container hidden" id="filter-toggle-container">
-                <div class="view-mode-selector hidden" id="view-mode-selector">
-                    <button class="view-mode-btn active" id="btn-mode-normal">💊 薬品別</button>
-                    <button class="view-mode-btn" id="btn-mode-and">🤝 同時保有店舗</button>
+                <div class="filter-left-options">
+                    <label class="btn-filter-toggle option-label" for="chk-fuzzy-search">
+                        <input type="checkbox" id="chk-fuzzy-search" class="option-checkbox" checked>
+                        <span>🔍 あいまい</span>
+                    </label>
+                    <div class="view-mode-selector hidden" id="view-mode-selector">
+                        <button class="view-mode-btn active" id="btn-mode-normal">💊 薬品別</button>
+                        <button class="view-mode-btn" id="btn-mode-and">🤝 同時保有</button>
+                    </div>
                 </div>
                 <button class="btn-filter-toggle" id="btn-filter-toggle">
-                    <span class="filter-icon-setting">⚙️</span> 店舗フィルター <span id="filter-count"></span>
+                    <span class="filter-icon-setting">⚙️</span> フィルター <span id="filter-count"></span>
                 </button>
             </div>
 

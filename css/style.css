@@ -649,20 +649,29 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-top: 8px;
-    gap: 10px;
+    gap: 8px;
+    flex-wrap: wrap; /* 極小画面幅の際に2段に折り返す */
+    width: 100%;
 }
 
 .filter-toggle-container.hidden {
     display: none;
 }
 
+.filter-left-options {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap; /* タブとあいまい検索が折り返せるようにする */
+}
+
 .btn-filter-toggle {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     color: var(--text-secondary);
-    padding: 8px 16px;
+    padding: 8px 14px;
     border-radius: 20px;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 500;
     cursor: pointer;
     display: flex;
@@ -670,6 +679,7 @@ body {
     gap: 6px;
     transition: background 0.2s, border-color 0.2s, color 0.2s;
     -webkit-tap-highlight-color: transparent;
+    flex-shrink: 0;
 }
 
 .btn-filter-toggle:active {
@@ -683,7 +693,12 @@ body {
 }
 
 .option-label {
-    display: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
 /* ＋ 追加ボタン */
@@ -715,6 +730,7 @@ body {
     gap: 6px;
     margin-top: 8px;
     min-height: 0px;
+    width: 100%;
 }
 
 .drug-tag {
@@ -725,11 +741,27 @@ body {
     border-radius: 20px;
     font-size: 0.8rem;
     font-weight: 500;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
     animation: pop-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     line-height: 1.2;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+.tag-text {
+    max-width: calc(100vw - 80px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+@media (min-width: 600px) {
+    .tag-text {
+        max-width: 420px;
+    }
 }
 
 @keyframes pop-in {
@@ -746,6 +778,7 @@ body {
     transition: color 0.15s;
     display: inline-block;
     line-height: 1;
+    flex-shrink: 0;
 }
 
 .remove-tag:hover {

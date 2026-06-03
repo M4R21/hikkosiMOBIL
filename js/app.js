@@ -89,6 +89,21 @@ const App = (() => {
         const btnModeAnd = document.getElementById('btn-mode-and');
         if (btnModeAnd) btnModeAnd.addEventListener('click', () => setViewMode('and'));
 
+        // あいまい検索チェックボックス切り替えイベント
+        const chkFuzzy = document.getElementById('chk-fuzzy-search');
+        if (chkFuzzy) {
+            chkFuzzy.addEventListener('change', () => {
+                if (chkFuzzy.checked) {
+                    // あいまい検索がONになったら、現在追加されているタグからメーカー名を除去
+                    selectedSearchDrugs = selectedSearchDrugs.map(d => removeMakerName(d));
+                    // 重複を除去
+                    selectedSearchDrugs = Array.from(new Set(selectedSearchDrugs));
+                    renderDrugTags();
+                }
+                doSearch();
+            });
+        }
+
         // データの自動読み込みを試行
         const loaded = await tryAutoLoad();
 
@@ -363,15 +378,20 @@ const App = (() => {
         const input = document.getElementById('search-input');
         const term = input.value.trim();
         if (term) {
-            addSearchDrug(term);
+            const fuzzySearchChecked = document.getElementById('chk-fuzzy-search')?.checked ?? true;
+            const finalName = fuzzySearchChecked ? removeMakerName(term) : term;
+            addSearchDrug(finalName);
         }
     }
 
     function addSearchDrug(drugName) {
         if (!drugName) return;
         
-        if (!selectedSearchDrugs.includes(drugName)) {
-            selectedSearchDrugs.push(drugName);
+        const fuzzySearchChecked = document.getElementById('chk-fuzzy-search')?.checked ?? true;
+        const finalName = fuzzySearchChecked ? removeMakerName(drugName) : drugName;
+        
+        if (!selectedSearchDrugs.includes(finalName)) {
+            selectedSearchDrugs.push(finalName);
             renderDrugTags();
             updateViewModeSelector();
             doSearch();
@@ -400,7 +420,10 @@ const App = (() => {
         selectedSearchDrugs.forEach(name => {
             const tag = document.createElement('span');
             tag.className = 'drug-tag';
-            tag.textContent = name;
+
+            const tagText = document.createElement('span');
+            tagText.className = 'tag-text';
+            tagText.textContent = name;
 
             const removeBtn = document.createElement('span');
             removeBtn.className = 'remove-tag';
@@ -410,6 +433,7 @@ const App = (() => {
                 removeSearchDrug(name);
             });
 
+            tag.appendChild(tagText);
             tag.appendChild(removeBtn);
             container.appendChild(tag);
         });
@@ -562,6 +586,46 @@ const App = (() => {
         );
     }
 
+    // ===== メーカー名「」の除去 =====
+    function removeMakerName(name) {
+        if (!name) return '';
+        // 「」で囲まれたメーカー名と、その前後の空白（全角半角）を除去
+        return name.replace(/[\s　]*「[^」]+」[\s　]*/g, '').trim();
+    }
+
+    // ===== 薬品名・検索語の正規化 =====
+    function normalizeDrugName(name, removeMaker = false) {
+        if (!name) return '';
+        let res = name;
+
+        if (removeMaker) {
+            res = removeMakerName(res);
+        }
+
+        // 小文字化
+        res = res.toLowerCase();
+
+        // ひらがな→カタカナ
+        res = hiraToKana(res);
+
+        // 全角英数→半角英数
+        res = res.replace(/[Ａ-Ｚａ-ｚ０-９]/g, (s) =>
+            String.fromCharCode(s.charCodeAt(0) - 0xfee0)
+        );
+
+        // 代表的な全角記号や特殊単位、スペース、ハイフンの表記揺れを統一
+        res = res.replace(/　/g, ' ')
+                 .replace(/㎎/g, 'mg')
+                 .replace(/ℊ/g, 'g')
+                 .replace(/㎖/g, 'ml')
+                 .replace(/％/g, '%')
+                 .replace(/μg/g, 'ug')
+                 .replace(/㎍/g, 'ug')
+                 .replace(/[-－‐—ー]/g, '-');
+
+        return res.trim();
+    }
+
     // ===== オートコンプリート =====
     async function onAutocompleteInput() {
         const input = document.getElementById('search-input');
@@ -572,9 +636,25 @@ const App = (() => {
             return;
         }
 
-        const termKana = hiraToKana(term.toLowerCase());
-        const matches = drugNameIndex
-            .filter(n => hiraToKana(n.toLowerCase()).includes(termKana))
+        const fuzzySearchChecked = document.getElementById('chk-fuzzy-search')?.checked ?? true;
+        const termNormalized = normalizeDrugName(term, fuzzySearchChecked);
+
+        // 候補のベースとなる薬品名リスト
+        let candidates = [];
+        if (fuzzySearchChecked) {
+            const uniqueNames = new Set();
+            drugData.forEach(d => {
+                const cleanName = removeMakerName(d.n);
+                if (cleanName) uniqueNames.add(cleanName);
+            });
+            candidates = Array.from(uniqueNames);
+        } else {
+            candidates = drugNameIndex;
+        }
+
+        // 候補の絞り込み
+        const matches = candidates
+            .filter(name => normalizeDrugName(name, false).includes(termNormalized))
             .slice(0, 12);
 
         const list = document.getElementById('autocomplete-list');
@@ -585,17 +665,35 @@ const App = (() => {
 
         acActiveIdx = -1;
         list.innerHTML = matches.map((name, i) => {
-            const nameKana = hiraToKana(name.toLowerCase());
-            const idx = nameKana.indexOf(termKana);
             let html;
-            if (idx >= 0) {
-                html = escapeHtml(name.substring(0, idx))
-                    + '<span class="ac-match">'
-                    + escapeHtml(name.substring(idx, idx + term.length))
-                    + '</span>'
-                    + escapeHtml(name.substring(idx + term.length));
+            if (fuzzySearchChecked) {
+                // あいまい検索ON時は簡易的な一致ハイライト
+                const lowerName = name.toLowerCase();
+                const lowerTerm = term.toLowerCase();
+                const idx = lowerName.indexOf(lowerTerm);
+                if (idx >= 0) {
+                    html = escapeHtml(name.substring(0, idx))
+                        + '<span class="ac-match">'
+                        + escapeHtml(name.substring(idx, idx + term.length))
+                        + '</span>'
+                        + escapeHtml(name.substring(idx + term.length));
+                } else {
+                    html = escapeHtml(name);
+                }
             } else {
-                html = escapeHtml(name);
+                // あいまい検索OFF時は従来通りのかな一致ハイライト
+                const termKana = hiraToKana(term.toLowerCase());
+                const nameKana = hiraToKana(name.toLowerCase());
+                const idx = nameKana.indexOf(termKana);
+                if (idx >= 0) {
+                    html = escapeHtml(name.substring(0, idx))
+                        + '<span class="ac-match">'
+                        + escapeHtml(name.substring(idx, idx + term.length))
+                        + '</span>'
+                        + escapeHtml(name.substring(idx + term.length));
+                } else {
+                    html = escapeHtml(name);
+                }
             }
             return `<div class="autocomplete-item" data-index="${i}" data-value="${escapeHtml(name)}">${html}</div>`;
         }).join('');
@@ -674,11 +772,12 @@ const App = (() => {
 
         hideAutocomplete();
 
-        const keywordKanas = selectedSearchDrugs.map(k => hiraToKana(k.toLowerCase()));
+        const fuzzySearchChecked = document.getElementById('chk-fuzzy-search')?.checked ?? true;
+        const normalizedKeywords = selectedSearchDrugs.map(k => normalizeDrugName(k, fuzzySearchChecked));
 
         const results = drugData.filter(d => {
-            const nameKana = hiraToKana(d.n.toLowerCase());
-            return keywordKanas.some(k => nameKana.includes(k));
+            const normalizedDrug = normalizeDrugName(d.n, fuzzySearchChecked);
+            return normalizedKeywords.some(k => normalizedDrug.includes(k));
         });
 
         if (currentViewMode === 'and' && selectedSearchDrugs.length >= 2) {
@@ -794,16 +893,17 @@ const App = (() => {
         resultsArea.classList.remove('hidden');
 
         // タグで登録されている各検索キーワード
-        const keywordKanas = selectedSearchDrugs.map(k => hiraToKana(k.toLowerCase()));
+        const fuzzySearchChecked = document.getElementById('chk-fuzzy-search')?.checked ?? true;
+        const normalizedKeywords = selectedSearchDrugs.map(k => normalizeDrugName(k, fuzzySearchChecked));
         
         // 選択されている店舗の中で、すべてのキーワードに合致する薬品の在庫がある店舗を抽出
         const andStores = [];
 
         selectedStores.forEach(storeName => {
-            const hasAllKeywords = keywordKanas.every(k => {
+            const hasAllKeywords = normalizedKeywords.every(k => {
                 return results.some(drug => {
-                    const nameKana = hiraToKana(drug.n.toLowerCase());
-                    if (!nameKana.includes(k)) return false;
+                    const normalizedDrug = normalizeDrugName(drug.n, fuzzySearchChecked);
+                    if (!normalizedDrug.includes(k)) return false;
                     
                     const storeStatus = drug.s.find(s => s.sn === storeName);
                     return storeStatus && storeStatus.h;
@@ -814,10 +914,10 @@ const App = (() => {
                 // その店舗が「すべてを保有」している場合の詳細情報（店舗における各薬の在庫状況と頻度）を構築
                 const drugDetails = [];
                 selectedSearchDrugs.forEach(keyword => {
-                    const kwKana = hiraToKana(keyword.toLowerCase());
+                    const kwNormalized = normalizeDrugName(keyword, fuzzySearchChecked);
                     const matchedDrugsInStore = results.filter(drug => {
-                        const nameKana = hiraToKana(drug.n.toLowerCase());
-                        if (!nameKana.includes(kwKana)) return false;
+                        const normalizedDrug = normalizeDrugName(drug.n, fuzzySearchChecked);
+                        if (!normalizedDrug.includes(kwNormalized)) return false;
                         const storeStatus = drug.s.find(s => s.sn === storeName);
                         return storeStatus && storeStatus.h;
                     });
