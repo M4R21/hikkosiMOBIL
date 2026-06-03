@@ -51,10 +51,36 @@
             <div class="search-area">
                 <div class="search-box-wrapper">
                     <input type="text" id="search-input" class="search-input"
-                           placeholder="薬品名を入力（例: アムロジピン）" autocomplete="off">
-                    <button class="search-btn" id="btn-search">🔍</button>
+                           placeholder="薬品名を入力..." autocomplete="off">
+                    <button class="add-drug-btn" id="btn-add-drug" title="検索リストに追加">＋</button>
                 </div>
+                <div class="selected-drugs-container" id="selected-drugs-container"></div>
                 <div class="autocomplete-list hidden" id="autocomplete-list"></div>
+            </div>
+
+            <!-- ===== 表示モード選択 ＆ 店舗フィルター ===== -->
+            <div class="filter-toggle-container hidden" id="filter-toggle-container">
+                <div class="view-mode-selector hidden" id="view-mode-selector">
+                    <button class="view-mode-btn active" id="btn-mode-normal">💊 薬品別</button>
+                    <button class="view-mode-btn" id="btn-mode-and">🤝 同時保有店舗</button>
+                </div>
+                <button class="btn-filter-toggle" id="btn-filter-toggle">
+                    <span class="filter-icon-setting">⚙️</span> 店舗フィルター <span id="filter-count"></span>
+                </button>
+            </div>
+
+            <!-- ===== 店舗フィルターパネル ===== -->
+            <div id="filter-panel" class="filter-panel hidden">
+                <div class="filter-header">
+                    <h3>表示する店舗を選択</h3>
+                    <div class="filter-actions">
+                        <button class="btn-filter-action" id="btn-store-all">全選択</button>
+                        <button class="btn-filter-action btn-outline" id="btn-store-clear">全解除</button>
+                    </div>
+                </div>
+                <div class="store-grid" id="store-filter-list">
+                    <!-- JSで動的に店舗名チェックボックスが挿入されます -->
+                </div>
             </div>
 
             <!-- ===== 検索結果 ===== -->

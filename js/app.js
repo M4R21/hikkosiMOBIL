@@ -25,6 +25,15 @@ const App = (() => {
     let dataVersion = '';
     let dataExportedAt = '';
 
+    // ===== フィルター関連 =====
+    let allStores = [];
+    let selectedStores = new Set();
+    let isFilterOpen = false;
+
+    // ===== 複数検索タグ ＆ 表示モード =====
+    let selectedSearchDrugs = [];
+    let currentViewMode = 'normal'; // 'normal' または 'and'
+
     // ===== オートコンプリート =====
     let acActiveIdx = -1;
 
@@ -33,13 +42,52 @@ const App = (() => {
         // イベントバインド
         const input = document.getElementById('search-input');
         input.addEventListener('input', onAutocompleteInput);
-        input.addEventListener('keydown', onKeydown);
         input.addEventListener('blur', () => setTimeout(hideAutocomplete, 200));
 
-        document.getElementById('btn-search').addEventListener('click', doSearch);
+        // ＋（追加）ボタン
+        const btnAdd = document.getElementById('btn-add-drug');
+        if (btnAdd) {
+            btnAdd.addEventListener('click', () => {
+                addSearchDrugFromInput();
+            });
+        }
+
+        // 入力欄のEnterキーで追加
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (acActiveIdx >= 0) {
+                    const items = document.querySelectorAll('.autocomplete-item');
+                    if (items[acActiveIdx]) {
+                        addSearchDrug(items[acActiveIdx].dataset.value);
+                    }
+                } else {
+                    addSearchDrugFromInput();
+                }
+            } else {
+                onKeydown(e);
+            }
+        });
 
         // ドロップゾーン（データ未読み込み時）
         setupDropZone();
+
+        // 店舗フィルターイベント
+        const btnToggle = document.getElementById('btn-filter-toggle');
+        if (btnToggle) btnToggle.addEventListener('click', toggleFilterPanel);
+
+        const btnAll = document.getElementById('btn-store-all');
+        if (btnAll) btnAll.addEventListener('click', selectAllStores);
+
+        const btnClear = document.getElementById('btn-store-clear');
+        if (btnClear) btnClear.addEventListener('click', clearAllStores);
+
+        // 表示モード切り替えイベント
+        const btnModeNormal = document.getElementById('btn-mode-normal');
+        if (btnModeNormal) btnModeNormal.addEventListener('click', () => setViewMode('normal'));
+
+        const btnModeAnd = document.getElementById('btn-mode-and');
+        if (btnModeAnd) btnModeAnd.addEventListener('click', () => setViewMode('and'));
 
         // データの自動読み込みを試行
         const loaded = await tryAutoLoad();
@@ -203,7 +251,201 @@ const App = (() => {
         dataVersion = data.version || '';
         dataExportedAt = data.exportedAt || '';
 
+        // ユニークな店舗名の動的抽出
+        const storeSet = new Set();
+        drugData.forEach(drug => {
+            if (Array.isArray(drug.s)) {
+                drug.s.forEach(s => {
+                    if (s.sn) storeSet.add(s.sn);
+                });
+            }
+        });
+        allStores = Array.from(storeSet).sort((a, b) => a.localeCompare(b, 'ja'));
+        
+        // 選択店舗の初期化（全店舗）
+        selectedStores = new Set(allStores);
+
+        // フィルターコンテナの表示とチェックボックス生成
+        const filterContainer = document.getElementById('filter-toggle-container');
+        if (filterContainer && allStores.length > 0) {
+            filterContainer.classList.remove('hidden');
+            renderStoreFilter();
+        }
+
         updateDataInfo();
+    }
+
+    function renderStoreFilter() {
+        const container = document.getElementById('store-filter-list');
+        if (!container) return;
+        container.innerHTML = '';
+
+        allStores.forEach(sn => {
+            const label = document.createElement('label');
+            label.className = 'store-filter-label';
+
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = sn;
+            cb.checked = selectedStores.has(sn);
+            cb.addEventListener('change', () => {
+                if (cb.checked) {
+                    selectedStores.add(sn);
+                } else {
+                    selectedStores.delete(sn);
+                }
+                updateFilterCount();
+                // 検索欄に入力があれば再検索して反映
+                if (selectedSearchDrugs.length > 0) {
+                    doSearch();
+                }
+            });
+
+            const span = document.createElement('span');
+            span.textContent = sn;
+
+            label.appendChild(cb);
+            label.appendChild(span);
+            container.appendChild(label);
+        });
+
+        updateFilterCount();
+    }
+
+    function updateFilterCount() {
+        const countEl = document.getElementById('filter-count');
+        if (!countEl) return;
+        if (selectedStores.size === allStores.length) {
+            countEl.textContent = '(全店舗)';
+        } else {
+            countEl.textContent = `(${selectedStores.size}/${allStores.length})`;
+        }
+    }
+
+    function toggleFilterPanel() {
+        const panel = document.getElementById('filter-panel');
+        const btn = document.getElementById('btn-filter-toggle');
+        if (!panel || !btn) return;
+        isFilterOpen = !isFilterOpen;
+        if (isFilterOpen) {
+            panel.classList.remove('hidden');
+            btn.classList.add('active');
+        } else {
+            panel.classList.add('hidden');
+            btn.classList.remove('active');
+        }
+    }
+
+    function selectAllStores() {
+        allStores.forEach(sn => selectedStores.add(sn));
+        document.querySelectorAll('#store-filter-list input[type="checkbox"]').forEach(cb => {
+            cb.checked = true;
+        });
+        updateFilterCount();
+        if (selectedSearchDrugs.length > 0) {
+            doSearch();
+        }
+    }
+
+    function clearAllStores() {
+        selectedStores.clear();
+        document.querySelectorAll('#store-filter-list input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+        });
+        updateFilterCount();
+        if (selectedSearchDrugs.length > 0) {
+            doSearch();
+        }
+    }
+
+    // ===== 薬品タグ追加・削除管理 =====
+    function addSearchDrugFromInput() {
+        const input = document.getElementById('search-input');
+        const term = input.value.trim();
+        if (term) {
+            addSearchDrug(term);
+        }
+    }
+
+    function addSearchDrug(drugName) {
+        if (!drugName) return;
+        
+        if (!selectedSearchDrugs.includes(drugName)) {
+            selectedSearchDrugs.push(drugName);
+            renderDrugTags();
+            updateViewModeSelector();
+            doSearch();
+        }
+        
+        const input = document.getElementById('search-input');
+        if (input) {
+            input.value = '';
+            input.focus();
+        }
+        hideAutocomplete();
+    }
+
+    function removeSearchDrug(drugName) {
+        selectedSearchDrugs = selectedSearchDrugs.filter(d => d !== drugName);
+        renderDrugTags();
+        updateViewModeSelector();
+        doSearch();
+    }
+
+    function renderDrugTags() {
+        const container = document.getElementById('selected-drugs-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        selectedSearchDrugs.forEach(name => {
+            const tag = document.createElement('span');
+            tag.className = 'drug-tag';
+            tag.textContent = name;
+
+            const removeBtn = document.createElement('span');
+            removeBtn.className = 'remove-tag';
+            removeBtn.textContent = '×';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeSearchDrug(name);
+            });
+
+            tag.appendChild(removeBtn);
+            container.appendChild(tag);
+        });
+    }
+
+    function updateViewModeSelector() {
+        const selector = document.getElementById('view-mode-selector');
+        if (!selector) return;
+
+        if (selectedSearchDrugs.length >= 2) {
+            selector.classList.remove('hidden');
+        } else {
+            selector.classList.add('hidden');
+            setViewMode('normal');
+        }
+    }
+
+    function setViewMode(mode) {
+        currentViewMode = mode;
+        
+        const btnNormal = document.getElementById('btn-mode-normal');
+        const btnAnd = document.getElementById('btn-mode-and');
+        
+        if (btnNormal && btnAnd) {
+            if (mode === 'normal') {
+                btnNormal.classList.add('active');
+                btnAnd.classList.remove('active');
+            } else {
+                btnNormal.classList.remove('active');
+                btnAnd.classList.add('active');
+            }
+        }
+        
+        if (selectedSearchDrugs.length > 0) {
+            doSearch();
+        }
     }
 
     function updateDataInfo() {
@@ -324,6 +566,7 @@ const App = (() => {
     async function onAutocompleteInput() {
         const input = document.getElementById('search-input');
         const term = input.value.trim();
+
         if (term.length < 2 || drugData.length === 0) {
             hideAutocomplete();
             return;
@@ -362,16 +605,11 @@ const App = (() => {
         list.querySelectorAll('.autocomplete-item').forEach(item => {
             item.addEventListener('mousedown', (e) => {
                 e.preventDefault();
-                input.value = item.dataset.value;
-                hideAutocomplete();
-                doSearch();
+                addSearchDrug(item.dataset.value);
             });
-            // タッチ対応
             item.addEventListener('touchstart', (e) => {
                 e.preventDefault();
-                input.value = item.dataset.value;
-                hideAutocomplete();
-                doSearch();
+                addSearchDrug(item.dataset.value);
             }, { passive: false });
         });
     }
@@ -379,10 +617,6 @@ const App = (() => {
     function onKeydown(e) {
         const list = document.getElementById('autocomplete-list');
         if (list.classList.contains('hidden')) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                doSearch();
-            }
             return;
         }
 
@@ -400,10 +634,8 @@ const App = (() => {
         } else if (e.key === 'Enter') {
             e.preventDefault();
             if (acActiveIdx >= 0) {
-                document.getElementById('search-input').value = items[acActiveIdx].dataset.value;
-                hideAutocomplete();
+                addSearchDrug(items[acActiveIdx].dataset.value);
             }
-            doSearch();
         } else if (e.key === 'Escape') {
             hideAutocomplete();
         }
@@ -429,9 +661,9 @@ const App = (() => {
 
     // ===== 検索実行 =====
     function doSearch() {
-        const term = document.getElementById('search-input').value.trim();
-        if (!term) {
-            showToast('薬品名を入力してください', 'warning');
+        if (selectedSearchDrugs.length === 0) {
+            document.getElementById('results-area').classList.add('hidden');
+            document.getElementById('welcome-area').classList.remove('hidden');
             return;
         }
 
@@ -442,17 +674,22 @@ const App = (() => {
 
         hideAutocomplete();
 
-        const termKana = hiraToKana(term.toLowerCase());
+        const keywordKanas = selectedSearchDrugs.map(k => hiraToKana(k.toLowerCase()));
 
-        const results = drugData.filter(d =>
-            hiraToKana(d.n.toLowerCase()).includes(termKana)
-        );
+        const results = drugData.filter(d => {
+            const nameKana = hiraToKana(d.n.toLowerCase());
+            return keywordKanas.some(k => nameKana.includes(k));
+        });
 
-        renderResults(results);
+        if (currentViewMode === 'and' && selectedSearchDrugs.length >= 2) {
+            renderStoreCentricResults(results);
+        } else {
+            renderNormalResults(results);
+        }
     }
 
-    // ===== 結果描画 =====
-    function renderResults(results) {
+    // ===== 薬品別の結果描画 (通常モード) =====
+    function renderNormalResults(results) {
         const container = document.getElementById('results-list');
         const countEl = document.getElementById('results-count');
         const resultsArea = document.getElementById('results-area');
@@ -478,17 +715,17 @@ const App = (() => {
             const card = document.createElement('div');
             card.className = 'result-card';
 
-            // 在庫あり店舗数を計算
-            const inStockCount = drug.s.filter(s => s.h).length;
-            const totalStores = drug.s.length;
+            const filteredStores = drug.s.filter(s => selectedStores.has(s.sn));
 
-            // バッジクラス
+            const inStockCount = filteredStores.filter(s => s.h).length;
+            const totalStores = filteredStores.length;
+
             let badgeClass = 'has-none';
-            if (inStockCount > totalStores * 0.5) badgeClass = 'has-many';
+            if (totalStores === 0) badgeClass = 'has-none';
+            else if (inStockCount > totalStores * 0.5) badgeClass = 'has-many';
             else if (inStockCount > 0) badgeClass = 'has-some';
 
-            // 店舗行HTML（在庫あり → なしの順にソート）
-            const sortedStores = [...drug.s].sort((a, b) => {
+            const sortedStores = [...filteredStores].sort((a, b) => {
                 if (a.h !== b.h) return a.h ? -1 : 1;
                 return a.sn.localeCompare(b.sn, 'ja');
             });
@@ -541,6 +778,109 @@ const App = (() => {
 
         // 最初のカードまでスクロール
         if (results.length > 0) {
+            resultsArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    // ===== 同時保有店舗メインの結果描画 (ANDモード) =====
+    function renderStoreCentricResults(results) {
+        const container = document.getElementById('results-list');
+        const countEl = document.getElementById('results-count');
+        const resultsArea = document.getElementById('results-area');
+        const welcomeArea = document.getElementById('welcome-area');
+
+        container.innerHTML = '';
+        welcomeArea.classList.add('hidden');
+        resultsArea.classList.remove('hidden');
+
+        // タグで登録されている各検索キーワード
+        const keywordKanas = selectedSearchDrugs.map(k => hiraToKana(k.toLowerCase()));
+        
+        // 選択されている店舗の中で、すべてのキーワードに合致する薬品の在庫がある店舗を抽出
+        const andStores = [];
+
+        selectedStores.forEach(storeName => {
+            const hasAllKeywords = keywordKanas.every(k => {
+                return results.some(drug => {
+                    const nameKana = hiraToKana(drug.n.toLowerCase());
+                    if (!nameKana.includes(k)) return false;
+                    
+                    const storeStatus = drug.s.find(s => s.sn === storeName);
+                    return storeStatus && storeStatus.h;
+                });
+            });
+
+            if (hasAllKeywords) {
+                // その店舗が「すべてを保有」している場合の詳細情報（店舗における各薬の在庫状況と頻度）を構築
+                const drugDetails = [];
+                selectedSearchDrugs.forEach(keyword => {
+                    const kwKana = hiraToKana(keyword.toLowerCase());
+                    const matchedDrugsInStore = results.filter(drug => {
+                        const nameKana = hiraToKana(drug.n.toLowerCase());
+                        if (!nameKana.includes(kwKana)) return false;
+                        const storeStatus = drug.s.find(s => s.sn === storeName);
+                        return storeStatus && storeStatus.h;
+                    });
+
+                    matchedDrugsInStore.forEach(drug => {
+                        const storeStatus = drug.s.find(s => s.sn === storeName);
+                        drugDetails.push({
+                            drugName: drug.n,
+                            freq: storeStatus ? storeStatus.f : '／'
+                        });
+                    });
+                });
+
+                andStores.push({
+                    storeName,
+                    drugs: drugDetails
+                });
+            }
+        });
+
+        // 表示件数を設定
+        countEl.textContent = `📋 同時保有している店舗: ${andStores.length}店舗`;
+
+        if (andStores.length === 0) {
+            container.innerHTML = `
+                <div class="empty-results">
+                    <div class="empty-icon">🤝</div>
+                    <p>選択したすべての薬品を同時に保有している店舗はありません</p>
+                </div>
+            `;
+            return;
+        }
+
+        // 店舗ごとにカードを描画
+        andStores.forEach(store => {
+            const card = document.createElement('div');
+            card.className = 'store-centric-card';
+
+            const drugRows = store.drugs.map(d => {
+                const freqClass = getFreqClass(d.freq);
+                return `
+                    <div class="store-centric-drug-row">
+                        <span class="store-centric-drug-name">${escapeHtml(d.drugName)}</span>
+                        <span class="store-stock-badge in-stock">在庫あり</span>
+                        <span class="store-freq ${freqClass}">${escapeHtml(d.freq)}</span>
+                    </div>
+                `;
+            }).join('');
+
+            card.innerHTML = `
+                <div class="store-centric-header">
+                    <span class="store-centric-name">🏢 ${escapeHtml(store.storeName)}</span>
+                    <span class="store-centric-badge">揃います</span>
+                </div>
+                <div class="store-centric-body">
+                    ${drugRows}
+                </div>
+            `;
+
+            container.appendChild(card);
+        });
+
+        if (andStores.length > 0) {
             resultsArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     }

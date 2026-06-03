@@ -642,3 +642,349 @@ body {
         font-size: 1rem;
     }
 }
+
+/* ===== 店舗フィルター ===== */
+.filter-toggle-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+    gap: 10px;
+}
+
+.filter-toggle-container.hidden {
+    display: none;
+}
+
+.btn-filter-toggle {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.btn-filter-toggle:active {
+    background: var(--bg-card-hover);
+}
+
+.btn-filter-toggle.active {
+    border-color: var(--accent);
+    color: var(--accent-light);
+    background: var(--accent-glow);
+}
+
+.option-label {
+    display: none;
+}
+
+/* ＋ 追加ボタン */
+.add-drug-btn {
+    background: linear-gradient(135deg, var(--accent), #7c3aed);
+    border: none;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 1.3rem;
+    font-weight: bold;
+    width: 48px;
+    height: 44px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s, box-shadow 0.15s;
+    flex-shrink: 0;
+}
+
+.add-drug-btn:active {
+    transform: scale(0.92);
+}
+
+/* 選択済み薬品タグ */
+.selected-drugs-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    min-height: 0px;
+}
+
+.drug-tag {
+    background: var(--accent-glow);
+    border: 1px solid var(--border-accent);
+    color: var(--accent-light);
+    padding: 6px 10px 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    animation: pop-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    line-height: 1.2;
+}
+
+@keyframes pop-in {
+    from { opacity: 0; transform: scale(0.85); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.remove-tag {
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    font-weight: bold;
+    padding: 0 2px;
+    transition: color 0.15s;
+    display: inline-block;
+    line-height: 1;
+}
+
+.remove-tag:hover {
+    color: #fca5a5;
+}
+
+/* 表示モード切り替え */
+.view-mode-selector {
+    display: flex;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    padding: 3px;
+    border-radius: 20px;
+    gap: 2px;
+}
+
+.view-mode-selector.hidden {
+    display: none;
+}
+
+.view-mode-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    border-radius: 17px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.view-mode-btn.active {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+}
+
+/* 同時保有店舗メインのカード */
+.store-centric-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-accent);
+    border-radius: var(--radius);
+    margin-bottom: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+    animation: pop-in 0.25s ease-out;
+}
+
+.store-centric-header {
+    padding: 14px 16px;
+    background: rgba(99, 102, 241, 0.05);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.store-centric-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.store-centric-badge {
+    background: var(--success-bg);
+    color: #6ee7b7;
+    font-size: 0.72rem;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: 600;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.store-centric-body {
+    padding: 8px 16px 14px;
+}
+
+.store-centric-drug-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 0.85rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+}
+
+.store-centric-drug-row:last-child {
+    border-bottom: none;
+}
+
+.store-centric-drug-name {
+    color: var(--text-secondary);
+    flex: 1;
+    margin-right: 12px;
+    word-break: break-all;
+}
+
+.filter-icon-setting {
+    font-size: 0.95rem;
+}
+
+/* フィルターパネル */
+.filter-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow-card);
+    animation: slide-down 0.25s ease-out;
+}
+
+.filter-panel.hidden {
+    display: none;
+}
+
+@keyframes slide-down {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.filter-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.filter-header h3 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+.filter-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-filter-action {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 4px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-filter-action:active {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.btn-filter-action.btn-outline {
+    background: transparent;
+    color: var(--text-muted);
+}
+
+/* 店舗グリッド */
+.store-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    max-height: 240px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.store-filter-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    word-break: break-all;
+    line-height: 1.3;
+}
+
+.store-filter-label:active {
+    background: var(--bg-card-hover);
+}
+
+.store-filter-label input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--text-muted);
+    border-radius: 4px;
+    outline: none;
+    cursor: pointer;
+    display: grid;
+    place-content: center;
+    transition: border-color 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+
+.store-filter-label input[type="checkbox"]::before {
+    content: "✓";
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: #fff;
+    transform: scale(0);
+    transition: transform 0.15s ease-in-out;
+}
+
+.store-filter-label input[type="checkbox"]:checked {
+    border-color: var(--accent);
+    background: var(--accent);
+}
+
+.store-filter-label input[type="checkbox"]:checked::before {
+    transform: scale(1);
+}
+
+.store-filter-label:has(input[type="checkbox"]:checked) {
+    border-color: var(--border-accent);
+    background: rgba(99, 102, 241, 0.04);
+    color: var(--text-primary);
+}
+
+/* レスポンシブ調整 */
+@media (min-width: 480px) {
+    .store-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
