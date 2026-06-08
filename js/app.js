@@ -705,10 +705,28 @@ const App = (() => {
                 e.preventDefault();
                 addSearchDrug(item.dataset.value);
             });
+
+            let touchStartY = 0;
+            let hasMoved = false;
+
             item.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                addSearchDrug(item.dataset.value);
-            }, { passive: false });
+                touchStartY = e.touches[0].clientY;
+                hasMoved = false;
+            }, { passive: true });
+
+            item.addEventListener('touchmove', (e) => {
+                const currentY = e.touches[0].clientY;
+                if (Math.abs(currentY - touchStartY) > 8) {
+                    hasMoved = true;
+                }
+            }, { passive: true });
+
+            item.addEventListener('touchend', (e) => {
+                if (!hasMoved) {
+                    e.preventDefault();
+                    addSearchDrug(item.dataset.value);
+                }
+            });
         });
     }
 
