@@ -69,6 +69,11 @@
                         <button class="view-mode-btn active" id="btn-mode-normal">💊 薬品別</button>
                         <button class="view-mode-btn" id="btn-mode-and">🤝 同時保有</button>
                     </div>
+                    <div class="min-match-selector hidden" id="min-match-selector">
+                        <span class="min-match-label">最低</span>
+                        <select id="min-match-count" class="min-match-select"></select>
+                        <span class="min-match-label">品目</span>
+                    </div>
                 </div>
                 <button class="btn-filter-toggle" id="btn-filter-toggle">
                     <span class="filter-icon-setting">⚙️</span> フィルター <span id="filter-count"></span>
@@ -116,6 +121,22 @@
                 <div class="file-status" id="status-mobile-import"></div>
             </div>
         </main>
+    </div>
+
+    <!-- ========== 薬品詳細モーダル (在庫なし薬品の在庫あり店舗確認用) ========== -->
+    <div id="drug-detail-modal" class="modal hidden">
+        <div class="modal-overlay" id="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-drug-name">薬品名</h3>
+                <button class="modal-close" id="modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modal-store-list" class="modal-store-list">
+                    <!-- 在庫あり店舗の一覧が動的に挿入されます -->
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="js/app.js"></script>

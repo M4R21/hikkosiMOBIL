@@ -33,6 +33,7 @@ const App = (() => {
     // ===== 複数検索タグ ＆ 表示モード =====
     let selectedSearchDrugs = [];
     let currentViewMode = 'normal'; // 'normal' または 'and'
+    let minMatchCount = 0; // 0 = 全品目一致（デフォルト）
 
     // ===== オートコンプリート =====
     let acActiveIdx = -1;
@@ -89,6 +90,15 @@ const App = (() => {
         const btnModeAnd = document.getElementById('btn-mode-and');
         if (btnModeAnd) btnModeAnd.addEventListener('click', () => setViewMode('and'));
 
+        // 最低一致数セレクター変更イベント
+        const minMatchSelect = document.getElementById('min-match-count');
+        if (minMatchSelect) {
+            minMatchSelect.addEventListener('change', () => {
+                minMatchCount = parseInt(minMatchSelect.value, 10) || 0;
+                doSearch();
+            });
+        }
+
         // あいまい検索チェックボックス切り替えイベント
         const chkFuzzy = document.getElementById('chk-fuzzy-search');
         if (chkFuzzy) {
@@ -101,6 +111,30 @@ const App = (() => {
                     renderDrugTags();
                 }
                 doSearch();
+            });
+        }
+
+        // モーダルの閉じるイベント
+        const modal = document.getElementById('drug-detail-modal');
+        const modalClose = document.getElementById('modal-close-btn');
+        const modalOverlay = document.getElementById('modal-overlay');
+        if (modal && modalClose && modalOverlay) {
+            const closeModal = () => modal.classList.add('hidden');
+            modalClose.addEventListener('click', closeModal);
+            modalOverlay.addEventListener('click', closeModal);
+        }
+
+        // 不足薬品タップ時のイベント委譲
+        const resultsList = document.getElementById('results-list');
+        if (resultsList) {
+            resultsList.addEventListener('click', (e) => {
+                const missingRow = e.target.closest('.store-centric-drug-row.missing');
+                if (missingRow) {
+                    const drugName = missingRow.dataset.drugName;
+                    if (drugName) {
+                        showDrugDetailModal(drugName);
+                    }
+                }
             });
         }
 
@@ -445,9 +479,50 @@ const App = (() => {
 
         if (selectedSearchDrugs.length >= 2) {
             selector.classList.remove('hidden');
+            updateMinMatchSelector();
         } else {
             selector.classList.add('hidden');
+            const minMatchEl = document.getElementById('min-match-selector');
+            if (minMatchEl) minMatchEl.classList.add('hidden');
             setViewMode('normal');
+        }
+    }
+
+    function updateMinMatchSelector() {
+        const select = document.getElementById('min-match-count');
+        const container = document.getElementById('min-match-selector');
+        if (!select || !container) return;
+
+        const total = selectedSearchDrugs.length;
+        select.innerHTML = '';
+
+        // 「全品目」オプション
+        const optAll = document.createElement('option');
+        optAll.value = '0';
+        optAll.textContent = `全(${total})`;
+        select.appendChild(optAll);
+
+        // N品目〜2品目までのオプションを降順で生成
+        for (let i = total - 1; i >= 2; i--) {
+            const opt = document.createElement('option');
+            opt.value = String(i);
+            opt.textContent = String(i);
+            select.appendChild(opt);
+        }
+
+        // 現在の値を維持、範囲外なら「全品目」にリセット
+        if (minMatchCount > 0 && minMatchCount <= total) {
+            select.value = String(minMatchCount);
+        } else {
+            select.value = '0';
+            minMatchCount = 0;
+        }
+
+        // 同時保有モード中かつ3薬品以上のときだけ表示
+        if (currentViewMode === 'and' && total >= 3) {
+            container.classList.remove('hidden');
+        } else {
+            container.classList.add('hidden');
         }
     }
 
@@ -466,6 +541,9 @@ const App = (() => {
                 btnAnd.classList.add('active');
             }
         }
+
+        // 最低一致数セレクターの表示制御
+        updateMinMatchSelector();
         
         if (selectedSearchDrugs.length > 0) {
             doSearch();
@@ -913,67 +991,87 @@ const App = (() => {
         // タグで登録されている各検索キーワード
         const fuzzySearchChecked = document.getElementById('chk-fuzzy-search')?.checked ?? true;
         const normalizedKeywords = selectedSearchDrugs.map(k => normalizeDrugName(k, fuzzySearchChecked));
-        
-        // 選択されている店舗の中で、すべてのキーワードに合致する薬品の在庫がある店舗を抽出
-        const andStores = [];
+        const totalKeywords = normalizedKeywords.length;
+
+        // 最低一致数の決定（0 = 全品目一致）
+        const requiredCount = (minMatchCount > 0 && minMatchCount <= totalKeywords)
+            ? minMatchCount
+            : totalKeywords;
+
+        // 各店舗のキーワードごとの保有状況を判定
+        const storeResults = [];
 
         selectedStores.forEach(storeName => {
-            const hasAllKeywords = normalizedKeywords.every(k => {
-                return results.some(drug => {
+            let matchedCount = 0;
+            const drugDetails = [];
+            const missingKeywords = [];
+
+            selectedSearchDrugs.forEach((keyword, idx) => {
+                const kwNormalized = normalizedKeywords[idx];
+                const matchedDrugsInStore = results.filter(drug => {
                     const normalizedDrug = normalizeDrugName(drug.n, fuzzySearchChecked);
-                    if (!normalizedDrug.includes(k)) return false;
-                    
+                    if (!normalizedDrug.includes(kwNormalized)) return false;
                     const storeStatus = drug.s.find(s => s.sn === storeName);
                     return storeStatus && storeStatus.h;
                 });
-            });
 
-            if (hasAllKeywords) {
-                // その店舗が「すべてを保有」している場合の詳細情報（店舗における各薬の在庫状況と頻度）を構築
-                const drugDetails = [];
-                selectedSearchDrugs.forEach(keyword => {
-                    const kwNormalized = normalizeDrugName(keyword, fuzzySearchChecked);
-                    const matchedDrugsInStore = results.filter(drug => {
-                        const normalizedDrug = normalizeDrugName(drug.n, fuzzySearchChecked);
-                        if (!normalizedDrug.includes(kwNormalized)) return false;
-                        const storeStatus = drug.s.find(s => s.sn === storeName);
-                        return storeStatus && storeStatus.h;
-                    });
-
+                if (matchedDrugsInStore.length > 0) {
+                    matchedCount++;
                     matchedDrugsInStore.forEach(drug => {
                         const storeStatus = drug.s.find(s => s.sn === storeName);
                         drugDetails.push({
                             drugName: drug.n,
-                            freq: storeStatus ? storeStatus.f : '／'
+                            freq: storeStatus ? storeStatus.f : '／',
+                            hasStock: true
                         });
                     });
-                });
+                } else {
+                    missingKeywords.push(keyword);
+                }
+            });
 
-                andStores.push({
+            if (matchedCount >= requiredCount) {
+                storeResults.push({
                     storeName,
-                    drugs: drugDetails
+                    drugs: drugDetails,
+                    missingKeywords,
+                    matchedCount,
+                    totalKeywords
                 });
             }
         });
 
-        // 表示件数を設定
-        countEl.textContent = `📋 同時保有している店舗: ${andStores.length}店舗`;
+        // 一致数が多い順に並べ替え
+        storeResults.sort((a, b) => b.matchedCount - a.matchedCount);
 
-        if (andStores.length === 0) {
+        // 表示件数を設定
+        if (requiredCount === totalKeywords) {
+            countEl.textContent = `📋 全${totalKeywords}品目を保有: ${storeResults.length}店舗`;
+        } else {
+            countEl.textContent = `📋 ${requiredCount}品目以上を保有: ${storeResults.length}店舗`;
+        }
+
+        if (storeResults.length === 0) {
+            const msg = requiredCount === totalKeywords
+                ? '選択したすべての薬品を同時に保有している店舗はありません'
+                : `${requiredCount}品目以上を保有している店舗はありません`;
             container.innerHTML = `
                 <div class="empty-results">
                     <div class="empty-icon">🤝</div>
-                    <p>選択したすべての薬品を同時に保有している店舗はありません</p>
+                    <p>${msg}</p>
                 </div>
             `;
             return;
         }
 
         // 店舗ごとにカードを描画
-        andStores.forEach(store => {
+        storeResults.forEach(store => {
             const card = document.createElement('div');
             card.className = 'store-centric-card';
 
+            const isFullMatch = store.matchedCount === store.totalKeywords;
+
+            // 保有薬品の行
             const drugRows = store.drugs.map(d => {
                 const freqClass = getFreqClass(d.freq);
                 return `
@@ -985,22 +1083,116 @@ const App = (() => {
                 `;
             }).join('');
 
+            // 不足薬品の行（部分一致の場合のみ表示）
+            const missingRows = store.missingKeywords.map(kw => {
+                return `
+                    <div class="store-centric-drug-row missing" data-drug-name="${escapeHtml(kw)}">
+                        <span class="store-centric-drug-name">${escapeHtml(kw)}</span>
+                        <span class="store-stock-badge out-stock-small">在庫なし 🔎</span>
+                        <span class="store-freq freq-none">—</span>
+                    </div>
+                `;
+            }).join('');
+
+            const badgeClass = isFullMatch ? 'full' : 'partial';
+            const badgeText = isFullMatch
+                ? '全て揃います'
+                : `${store.matchedCount}/${store.totalKeywords} 品目`;
+
             card.innerHTML = `
                 <div class="store-centric-header">
                     <span class="store-centric-name">🏢 ${escapeHtml(store.storeName)}</span>
-                    <span class="store-centric-badge">揃います</span>
+                    <span class="store-centric-badge ${badgeClass}">${badgeText}</span>
                 </div>
                 <div class="store-centric-body">
                     ${drugRows}
+                    ${missingRows}
                 </div>
             `;
 
             container.appendChild(card);
         });
 
-        if (andStores.length > 0) {
+        if (storeResults.length > 0) {
             resultsArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+    }
+
+    function showDrugDetailModal(keyword) {
+        const modal = document.getElementById('drug-detail-modal');
+        const modalTitle = document.getElementById('modal-drug-name');
+        const modalBody = document.getElementById('modal-store-list');
+        if (!modal || !modalTitle || !modalBody) return;
+
+        modalTitle.textContent = `「${keyword}」の在庫あり店舗`;
+        modalBody.innerHTML = '';
+
+        const fuzzySearchChecked = document.getElementById('chk-fuzzy-search')?.checked ?? true;
+        const normalizedKeyword = normalizeDrugName(keyword, fuzzySearchChecked);
+
+        // 部分一致するすべての薬を抽出
+        const matchedDrugs = drugData.filter(d => {
+            const normalizedDrug = normalizeDrugName(d.n, fuzzySearchChecked);
+            return normalizedDrug.includes(normalizedKeyword);
+        });
+
+        if (matchedDrugs.length === 0) {
+            modalBody.innerHTML = '<div class="empty-results"><p>該当する薬品が見つかりませんでした</p></div>';
+            modal.classList.remove('hidden');
+            return;
+        }
+
+        // 店舗ごとの在庫情報を集計
+        const storeStockMap = new Map(); // storeName => [{ drugName, freq }]
+
+        matchedDrugs.forEach(drug => {
+            drug.s.forEach(s => {
+                if (s.h && selectedStores.has(s.sn)) {
+                    if (!storeStockMap.has(s.sn)) {
+                        storeStockMap.set(s.sn, []);
+                    }
+                    storeStockMap.get(s.sn).push({
+                        drugName: drug.n,
+                        freq: s.f
+                    });
+                }
+            });
+        });
+
+        if (storeStockMap.size === 0) {
+            modalBody.innerHTML = '<div class="empty-results"><p>選択された店舗の中に在庫ありの店舗はありません</p></div>';
+            modal.classList.remove('hidden');
+            return;
+        }
+
+        // 店舗名の五十音順などでソート
+        const sortedStores = Array.from(storeStockMap.keys()).sort((a, b) => a.localeCompare(b, 'ja'));
+
+        const rowsHtml = sortedStores.map(storeName => {
+            const drugs = storeStockMap.get(storeName);
+            
+            const drugsHtml = drugs.map(d => {
+                const freqClass = getFreqClass(d.freq);
+                return `
+                    <div class="modal-drug-item">
+                        <span class="modal-drug-item-name">${escapeHtml(d.drugName)}</span>
+                        <span class="store-freq ${freqClass}">${escapeHtml(d.freq)}</span>
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="modal-store-row">
+                    <span class="modal-store-name">🏢 ${escapeHtml(storeName)}</span>
+                    <div class="modal-store-drugs">
+                        ${drugsHtml}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        modalBody.innerHTML = rowsHtml;
+        modal.classList.remove('hidden');
     }
 
     function getFreqClass(freq) {

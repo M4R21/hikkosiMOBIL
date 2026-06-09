@@ -1021,3 +1021,209 @@ body {
     }
 }
 
+/* 最低一致数セレクター */
+.min-match-selector {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    padding: 3px 8px;
+    border-radius: 20px;
+}
+
+.min-match-selector.hidden {
+    display: none;
+}
+
+.min-match-label {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.min-match-select {
+    background: var(--bg-primary);
+    color: var(--accent-light);
+    border: 1px solid var(--border-accent);
+    border-radius: 8px;
+    padding: 3px 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-family: var(--font);
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    text-align: center;
+    min-width: 36px;
+}
+
+/* 保有割合バッジ */
+.store-centric-badge.full {
+    background: var(--success-bg);
+    color: #6ee7b7;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.store-centric-badge.partial {
+    background: var(--warning-bg);
+    color: #fcd34d;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+/* 不足薬品行のタップ対応スタイル */
+.store-centric-drug-row.missing {
+    opacity: 0.5;
+    cursor: pointer;
+    transition: background 0.15s, opacity 0.15s;
+    border-radius: 6px;
+    padding-left: 6px;
+    padding-right: 6px;
+    margin-left: -6px;
+    margin-right: -6px;
+}
+
+.store-centric-drug-row.missing:active {
+    background: rgba(255, 255, 255, 0.05);
+    opacity: 0.8;
+}
+
+.store-centric-drug-row.missing .store-centric-drug-name {
+    text-decoration: underline dotted rgba(255, 255, 255, 0.3);
+}
+
+.store-stock-badge.out-stock-small {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-muted);
+}
+
+/* ===== 薬品詳細確認用モーダル ===== */
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: flex-end; /* スマホ向けに画面下部からスライドイン */
+    justify-content: center;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    opacity: 0;
+}
+
+.modal:not(.hidden) {
+    pointer-events: auto;
+    opacity: 1;
+}
+
+.modal-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    transition: opacity 0.3s ease;
+}
+
+.modal-content {
+    position: relative;
+    background: var(--bg-card);
+    width: 100%;
+    max-width: 600px;
+    border-radius: var(--radius) var(--radius) 0 0;
+    border: 1px solid var(--border-accent);
+    border-bottom: none;
+    padding: 20px;
+    padding-bottom: calc(20px + var(--safe-bottom));
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal:not(.hidden) .modal-content {
+    transform: translateY(0);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+}
+
+.modal-header h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    word-break: break-all;
+    flex: 1;
+    margin-right: 12px;
+}
+
+.modal-close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    transition: color 0.2s;
+}
+
+.modal-close:active {
+    color: var(--text-primary);
+}
+
+.modal-body {
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-store-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.modal-store-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.modal-store-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    padding-bottom: 6px;
+}
+
+.modal-store-drugs {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.modal-drug-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.8rem;
+}
+
+.modal-drug-item-name {
+    color: var(--text-secondary);
+    word-break: break-all;
+    flex: 1;
+    margin-right: 12px;
+}
