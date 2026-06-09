@@ -34,6 +34,7 @@ const App = (() => {
     let selectedSearchDrugs = [];
     let currentViewMode = 'normal'; // 'normal' または 'and'
     let minMatchCount = 0; // 0 = 全品目一致（デフォルト）
+    let isMinMatchUserSelected = false; // ユーザーが手動で最低一致数を選んだかどうかのフラグ
 
     // ===== オートコンプリート =====
     let acActiveIdx = -1;
@@ -95,6 +96,7 @@ const App = (() => {
         if (minMatchSelect) {
             minMatchSelect.addEventListener('change', () => {
                 minMatchCount = parseInt(minMatchSelect.value, 10) || 0;
+                isMinMatchUserSelected = true;
                 doSearch();
             });
         }
@@ -103,6 +105,7 @@ const App = (() => {
         const chkFuzzy = document.getElementById('chk-fuzzy-search');
         if (chkFuzzy) {
             chkFuzzy.addEventListener('change', () => {
+                isMinMatchUserSelected = false;
                 if (chkFuzzy.checked) {
                     // あいまい検索がONになったら、現在追加されているタグからメーカー名を除去
                     selectedSearchDrugs = selectedSearchDrugs.map(d => removeMakerName(d));
@@ -343,6 +346,7 @@ const App = (() => {
                 } else {
                     selectedStores.delete(sn);
                 }
+                isMinMatchUserSelected = false;
                 updateFilterCount();
                 // 検索欄に入力があれば再検索して反映
                 if (selectedSearchDrugs.length > 0) {
@@ -390,6 +394,7 @@ const App = (() => {
         document.querySelectorAll('#store-filter-list input[type="checkbox"]').forEach(cb => {
             cb.checked = true;
         });
+        isMinMatchUserSelected = false;
         updateFilterCount();
         if (selectedSearchDrugs.length > 0) {
             doSearch();
@@ -401,6 +406,7 @@ const App = (() => {
         document.querySelectorAll('#store-filter-list input[type="checkbox"]').forEach(cb => {
             cb.checked = false;
         });
+        isMinMatchUserSelected = false;
         updateFilterCount();
         if (selectedSearchDrugs.length > 0) {
             doSearch();
@@ -426,6 +432,7 @@ const App = (() => {
         
         if (!selectedSearchDrugs.includes(finalName)) {
             selectedSearchDrugs.push(finalName);
+            isMinMatchUserSelected = false;
             renderDrugTags();
             updateViewModeSelector();
             doSearch();
@@ -441,6 +448,7 @@ const App = (() => {
 
     function removeSearchDrug(drugName) {
         selectedSearchDrugs = selectedSearchDrugs.filter(d => d !== drugName);
+        isMinMatchUserSelected = false;
         renderDrugTags();
         updateViewModeSelector();
         doSearch();
@@ -488,6 +496,42 @@ const App = (() => {
         }
     }
 
+    function calculateMaxMatchedCount() {
+        if (drugData.length === 0 || selectedSearchDrugs.length < 2) return 0;
+
+        const fuzzySearchChecked = document.getElementById('chk-fuzzy-search')?.checked ?? true;
+        const normalizedKeywords = selectedSearchDrugs.map(k => normalizeDrugName(k, fuzzySearchChecked));
+
+        // 検索タグに一致する薬品データを抽出
+        const matchedDrugs = drugData.filter(d => {
+            const normalizedDrug = normalizeDrugName(d.n, fuzzySearchChecked);
+            return normalizedKeywords.some(k => normalizedDrug.includes(k));
+        });
+
+        let maxCount = 0;
+
+        selectedStores.forEach(storeName => {
+            let matchedCount = 0;
+            selectedSearchDrugs.forEach((keyword, idx) => {
+                const kwNormalized = normalizedKeywords[idx];
+                const hasStock = matchedDrugs.some(drug => {
+                    const normalizedDrug = normalizeDrugName(drug.n, fuzzySearchChecked);
+                    if (!normalizedDrug.includes(kwNormalized)) return false;
+                    const storeStatus = drug.s.find(s => s.sn === storeName);
+                    return storeStatus && storeStatus.h;
+                });
+                if (hasStock) {
+                    matchedCount++;
+                }
+            });
+            if (matchedCount > maxCount) {
+                maxCount = matchedCount;
+            }
+        });
+
+        return maxCount;
+    }
+
     function updateMinMatchSelector() {
         const select = document.getElementById('min-match-count');
         const container = document.getElementById('min-match-selector');
@@ -510,6 +554,16 @@ const App = (() => {
             select.appendChild(opt);
         }
 
+        // ユーザーの手動変更がない場合、自動最適化を行う
+        if (!isMinMatchUserSelected && total >= 2) {
+            const maxMatched = calculateMaxMatchedCount();
+            if (maxMatched < total && maxMatched >= 2) {
+                minMatchCount = maxMatched;
+            } else {
+                minMatchCount = 0; // 全品目一致
+            }
+        }
+
         // 現在の値を維持、範囲外なら「全品目」にリセット
         if (minMatchCount > 0 && minMatchCount <= total) {
             select.value = String(minMatchCount);
@@ -528,6 +582,7 @@ const App = (() => {
 
     function setViewMode(mode) {
         currentViewMode = mode;
+        isMinMatchUserSelected = false;
         
         const btnNormal = document.getElementById('btn-mode-normal');
         const btnAnd = document.getElementById('btn-mode-and');
