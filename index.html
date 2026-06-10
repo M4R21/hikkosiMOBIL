@@ -41,84 +41,201 @@
                     <span class="header-icon">💊</span>
                     薬のお引越し
                 </h1>
-                <span class="header-badge">在庫検索</span>
+                <div class="header-right-actions">
+                    <button class="header-action-btn" id="btn-toggle-view" title="機能切り替え">🧮 処方計算</button>
+                </div>
             </div>
             <div class="data-info" id="data-info"></div>
         </header>
 
-        <!-- ===== 検索エリア ===== -->
+        <!-- ===== メインコンテンツ ===== -->
         <main class="main-content">
-            <div class="search-area">
-                <div class="search-box-wrapper">
-                    <input type="text" id="search-input" class="search-input"
-                           placeholder="薬品名を入力..." autocomplete="off">
-                    <button class="add-drug-btn" id="btn-add-drug" title="検索リストに追加">＋</button>
-                </div>
-                <div class="selected-drugs-container" id="selected-drugs-container"></div>
-                <div class="autocomplete-list hidden" id="autocomplete-list"></div>
-            </div>
-
-            <!-- ===== 表示モード選択 ＆ 店舗フィルター ===== -->
-            <div class="filter-toggle-container hidden" id="filter-toggle-container">
-                <div class="filter-left-options">
-                    <label class="btn-filter-toggle option-label" for="chk-fuzzy-search">
-                        <input type="checkbox" id="chk-fuzzy-search" class="option-checkbox" checked>
-                        <span>🔍 あいまい</span>
-                    </label>
-                    <div class="view-mode-selector hidden" id="view-mode-selector">
-                        <button class="view-mode-btn active" id="btn-mode-normal">💊 薬品別</button>
-                        <button class="view-mode-btn" id="btn-mode-and">🤝 同時保有</button>
+            <!-- ========== 在庫検索ビュー ========== -->
+            <div id="search-view">
+                <div class="search-area">
+                    <div class="search-box-wrapper">
+                        <input type="text" id="search-input" class="search-input"
+                               placeholder="薬品名を入力..." autocomplete="off">
+                        <button class="add-drug-btn" id="btn-add-drug" title="検索リストに追加">＋</button>
                     </div>
-                    <div class="min-match-selector hidden" id="min-match-selector">
-                        <span class="min-match-label">最低</span>
-                        <select id="min-match-count" class="min-match-select"></select>
-                        <span class="min-match-label">品目</span>
+                    <div class="selected-drugs-container" id="selected-drugs-container"></div>
+                    <div class="autocomplete-list hidden" id="autocomplete-list"></div>
+                </div>
+
+                <!-- ===== 表示モード選択 ＆ 店舗フィルター ===== -->
+                <div class="filter-toggle-container hidden" id="filter-toggle-container">
+                    <div class="filter-left-options">
+                        <label class="btn-filter-toggle option-label" for="chk-fuzzy-search">
+                            <input type="checkbox" id="chk-fuzzy-search" class="option-checkbox" checked>
+                            <span>🔍 あいまい</span>
+                        </label>
+                        <div class="view-mode-selector hidden" id="view-mode-selector">
+                            <button class="view-mode-btn active" id="btn-mode-normal">💊 薬品別</button>
+                            <button class="view-mode-btn" id="btn-mode-and">🤝 同時保有</button>
+                        </div>
+                        <div class="min-match-selector hidden" id="min-match-selector">
+                            <span class="min-match-label">最低</span>
+                            <select id="min-match-count" class="min-match-select"></select>
+                            <span class="min-match-label">品目</span>
+                        </div>
+                    </div>
+                    <button class="btn-filter-toggle" id="btn-filter-toggle">
+                        <span class="filter-icon-setting">⚙️</span> フィルター <span id="filter-count"></span>
+                    </button>
+                </div>
+
+                <!-- ===== 店舗フィルターパネル ===== -->
+                <div id="filter-panel" class="filter-panel hidden">
+                    <div class="filter-header">
+                        <h3>表示する店舗を選択</h3>
+                        <div class="filter-actions">
+                            <button class="btn-filter-action" id="btn-store-all">全選択</button>
+                            <button class="btn-filter-action btn-outline" id="btn-store-clear">全解除</button>
+                        </div>
+                    </div>
+                    <div class="store-grid" id="store-filter-list">
+                        <!-- JSで動的に店舗名チェックボックスが挿入されます -->
                     </div>
                 </div>
-                <button class="btn-filter-toggle" id="btn-filter-toggle">
-                    <span class="filter-icon-setting">⚙️</span> フィルター <span id="filter-count"></span>
-                </button>
+
+                <!-- ===== 検索結果 ===== -->
+                <div id="results-area" class="hidden">
+                    <div class="results-header">
+                        <span class="results-count" id="results-count"></span>
+                    </div>
+                    <div id="results-list"></div>
+                </div>
+
+                <!-- ===== 初期メッセージ ===== -->
+                <div id="welcome-area" class="welcome-area">
+                    <div class="welcome-icon">🔎</div>
+                    <p class="welcome-text">薬品名を入力して<br>在庫のある店舗を検索できます</p>
+                    <p class="welcome-sub">在庫の「有無」と「出庫頻度」が確認できます</p>
+                </div>
+
+                <!-- ===== データ未読み込み時 ===== -->
+                <div id="no-data-area" class="no-data-area hidden">
+                    <div class="no-data-icon">📥</div>
+                    <p class="no-data-text">データが読み込まれていません</p>
+                    <p class="no-data-sub">管理者が出力した shared-data-mobile.json を<br>以下から読み込んでください</p>
+                    <div class="drop-zone-mobile" id="drop-zone-mobile">
+                        <p>📥 ファイルをタップして選択<br>またはドラッグ＆ドロップ</p>
+                        <input type="file" accept=".json" id="file-mobile-import" hidden>
+                    </div>
+                    <div class="file-status" id="status-mobile-import"></div>
+                </div>
             </div>
 
-            <!-- ===== 店舗フィルターパネル ===== -->
-            <div id="filter-panel" class="filter-panel hidden">
-                <div class="filter-header">
-                    <h3>表示する店舗を選択</h3>
-                    <div class="filter-actions">
-                        <button class="btn-filter-action" id="btn-store-all">全選択</button>
-                        <button class="btn-filter-action btn-outline" id="btn-store-clear">全解除</button>
+            <!-- ========== 処方日数計算ビュー ========== -->
+            <div id="calc-view" class="hidden">
+                <div class="calc-back-container">
+                    <button class="calc-back-btn" id="btn-calc-back">← 在庫検索に戻る</button>
+                </div>
+
+                <!-- 服用開始日入力カード -->
+                <div class="calc-card">
+                    <div class="calc-field">
+                        <label>服用開始日</label>
+                        <input type="date" id="calc-startDate">
+                        <div class="calc-helper">デフォルト: 翌日</div>
                     </div>
                 </div>
-                <div class="store-grid" id="store-filter-list">
-                    <!-- JSで動的に店舗名チェックボックスが挿入されます -->
-                </div>
-            </div>
 
-            <!-- ===== 検索結果 ===== -->
-            <div id="results-area" class="hidden">
-                <div class="results-header">
-                    <span class="results-count" id="results-count"></span>
+                <!-- 複数薬品の注意表示 -->
+                <div id="calc-multiMedNotice" class="calc-notice">
+                    ※ 複数の薬品が登録されているため、メイン計算結果およびカレンダー表示を省略しています。各薬品の計算結果をご確認ください。
                 </div>
-                <div id="results-list"></div>
-            </div>
 
-            <!-- ===== 初期メッセージ ===== -->
-            <div id="welcome-area" class="welcome-area">
-                <div class="welcome-icon">🔎</div>
-                <p class="welcome-text">薬品名を入力して<br>在庫のある店舗を検索できます</p>
-                <p class="welcome-sub">在庫の「有無」と「出庫頻度」が確認できます</p>
-            </div>
-
-            <!-- ===== データ未読み込み時 ===== -->
-            <div id="no-data-area" class="no-data-area hidden">
-                <div class="no-data-icon">📥</div>
-                <p class="no-data-text">データが読み込まれていません</p>
-                <p class="no-data-sub">管理者が出力した shared-data-mobile.json を<br>以下から読み込んでください</p>
-                <div class="drop-zone-mobile" id="drop-zone-mobile">
-                    <p>📥 ファイルをタップして選択<br>またはドラッグ＆ドロップ</p>
-                    <input type="file" accept=".json" id="file-mobile-import" hidden>
+                <!-- 次回受診日 & 薬品リスト入力カード -->
+                <div class="calc-card">
+                    <div class="calc-field">
+                        <div class="calc-label-row">
+                            <label>次回受診日（または一包化末日）</label>
+                            <label class="calc-lock-toggle"><input type="checkbox" id="calc-lockNextVisit">🔒</label>
+                        </div>
+                        <input type="text" id="calc-nextVisitDate" placeholder="年/月/日" onfocus="this.type='date'" onblur="if(!this.value) this.type='text'">
+                        <div class="calc-option-row">
+                            <label class="calc-option-toggle" title="チェックすると受診日/一包化末日の当日を服用日数に含めません">
+                                <input type="checkbox" id="calc-excludeEndDay">
+                                <span>当日を含まない</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="calc-medicationsContainer">
+                        <div class="calc-medication-item">
+                            <div class="calc-med-header">
+                                <div class="calc-med-title-group">
+                                    <label class="calc-med-number">1.</label>
+                                    <input type="text" class="calc-med-name" placeholder="薬品名（任意）">
+                                </div>
+                                <button type="button" class="calc-remove-med-btn">削除</button>
+                            </div>
+                            <div class="calc-row">
+                                <div class="calc-field">
+                                    <div class="calc-label-row">
+                                        <label>残薬数</label>
+                                        <label class="calc-lock-toggle"><input type="checkbox" class="calc-lock-leftover">🔒</label>
+                                    </div>
+                                    <input type="number" class="calc-leftover-input" min="0" value="0" inputmode="numeric">
+                                </div>
+                                <div class="calc-field">
+                                    <div class="calc-label-row">
+                                        <label>1日服用総数</label>
+                                        <label class="calc-lock-toggle"><input type="checkbox" class="calc-lock-dosage">🔒</label>
+                                    </div>
+                                    <input type="number" class="calc-dosage-input" min="1" value="1" inputmode="numeric">
+                                </div>
+                            </div>
+                            <div class="calc-med-result">
+                                <span>残薬カバー: <strong class="calc-med-covered-days">0</strong>日</span>
+                                <span class="calc-med-presc-badge">必要処方: <strong class="calc-med-prescription-days">0</strong>日分</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" id="calc-addMedBtn" class="calc-add-btn">＋ 別の薬品を追加</button>
+                    <button class="calc-reset-btn" id="calc-resetBtn">設定をクリア（初期値に戻す）</button>
                 </div>
-                <div class="file-status" id="status-mobile-import"></div>
+
+                <!-- メイン結果表示カード -->
+                <div class="calc-result-card" id="calc-mainResultSection">
+                    <div class="calc-result-row">
+                        <div class="calc-result-item">
+                            <div class="calc-r-label">次回受診まで</div>
+                            <div class="calc-r-value" id="calc-daysUntilVisit">0<span class="calc-r-unit">日</span></div>
+                        </div>
+                        <div class="calc-result-item">
+                            <div class="calc-r-label">残薬カバー日数</div>
+                            <div class="calc-r-value" id="calc-daysCovered">0<span class="calc-r-unit">日</span></div>
+                        </div>
+                    </div>
+                    <div class="calc-result-highlight">
+                        <div class="calc-r-label">今回処方日数（変更可）</div>
+                        <div class="calc-presc-input-row">
+                            <input type="number" id="calc-prescriptionDays" value="0" min="0" inputmode="numeric">
+                            <span class="calc-presc-unit">日分</span>
+                        </div>
+                    </div>
+                    <div class="calc-end-date-row">
+                        <div class="calc-r-label">服用終了予定日</div>
+                        <div class="calc-r-value" id="calc-endDate">--/--</div>
+                    </div>
+                </div>
+
+                <!-- カレンダー表示カード -->
+                <div class="calc-card" id="calc-calendarSection">
+                    <div class="calc-cal-controls">
+                        <button id="calc-prevMonth">&lt;</button>
+                        <span class="calc-cal-month" id="calc-currentMonthYear"></span>
+                        <button id="calc-nextMonth">&gt;</button>
+                    </div>
+                    <div class="calc-cal-grid" id="calc-calendarGrid"></div>
+                    <div class="calc-cal-legend">
+                        <span class="calc-legend-item"><span class="calc-dot calc-dot-s"></span>開始日</span>
+                        <span class="calc-legend-item"><span class="calc-dot calc-dot-v"></span>受診日</span>
+                        <span class="calc-legend-item"><span class="calc-dot calc-dot-c"></span>残薬期間</span>
+                        <span class="calc-legend-item"><span class="calc-dot calc-dot-p"></span>処方期間</span>
+                    </div>
+                </div>
             </div>
         </main>
     </div>

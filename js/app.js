@@ -36,6 +36,9 @@ const App = (() => {
     let minMatchCount = 0; // 0 = 全品目一致（デフォルト）
     let isMinMatchUserSelected = false; // ユーザーが手動で最低一致数を選んだかどうかのフラグ
 
+    // ===== 処方日数計算用データ =====
+    let calcCalendarDate = new Date();
+
     // ===== オートコンプリート =====
     let acActiveIdx = -1;
 
@@ -139,6 +142,28 @@ const App = (() => {
                     }
                 }
             });
+        }
+
+        // 画面切り替えイベント
+        const btnToggleView = document.getElementById('btn-toggle-view');
+        const btnCalcBack = document.getElementById('btn-calc-back');
+        const searchView = document.getElementById('search-view');
+        const calcView = document.getElementById('calc-view');
+
+        if (btnToggleView && btnCalcBack && searchView && calcView) {
+            const toggleView = () => {
+                const isSearchHidden = searchView.classList.toggle('hidden');
+                calcView.classList.toggle('hidden');
+                
+                if (isSearchHidden) {
+                    btnToggleView.textContent = '🔍 在庫検索';
+                    initCalc();
+                } else {
+                    btnToggleView.textContent = '🧮 処方計算';
+                }
+            };
+            btnToggleView.addEventListener('click', toggleView);
+            btnCalcBack.addEventListener('click', toggleView);
         }
 
         // データの自動読み込みを試行
@@ -1248,6 +1273,375 @@ const App = (() => {
 
         modalBody.innerHTML = rowsHtml;
         modal.classList.remove('hidden');
+    }
+
+    function getFreqClass(freq) {
+        if (freq === '◎') return 'freq-excellent';
+        if (freq === '〇' || freq === '○') return 'freq-good';
+        if (freq === '△') return 'freq-low';
+        return 'freq-none';
+    }
+
+    // ===== 処方日数計算機能ロジック =====
+    let isCalcInitialized = false;
+
+    function initCalc() {
+        if (isCalcInitialized) return;
+        isCalcInitialized = true;
+
+        const startDateInput = document.getElementById('calc-startDate');
+        const nextVisitDateInput = document.getElementById('calc-nextVisitDate');
+        const excludeEndDayCheckbox = document.getElementById('calc-excludeEndDay');
+        const prescriptionDaysInput = document.getElementById('calc-prescriptionDays');
+        const medicationsContainer = document.getElementById('calc-medicationsContainer');
+        const addMedBtn = document.getElementById('calc-addMedBtn');
+        const prevMonthBtn = document.getElementById('calc-prevMonth');
+        const nextMonthBtn = document.getElementById('calc-nextMonth');
+        const resetBtn = document.getElementById('calc-resetBtn');
+
+        if (!startDateInput) return;
+
+        // デフォルト値設定
+        setCalcDefaults();
+
+        // イベント登録
+        [startDateInput, nextVisitDateInput].forEach(el => {
+            el.addEventListener('input', () => calculateCalcAll('date'));
+            el.addEventListener('click', function() {
+                if (this.type === 'text') this.type = 'date';
+                if (typeof this.showPicker === 'function') {
+                    try { this.showPicker(); } catch(err) {}
+                }
+            });
+        });
+
+        if (excludeEndDayCheckbox) {
+            excludeEndDayCheckbox.addEventListener('change', () => {
+                calculateCalcAll(nextVisitDateInput.value ? 'date' : 'days');
+            });
+        }
+
+        prescriptionDaysInput.addEventListener('input', () => calculateCalcAll('days'));
+        resetBtn.addEventListener('click', setCalcDefaults);
+
+        medicationsContainer.addEventListener('input', (e) => {
+            if (e.target.classList.contains('calc-leftover-input') || e.target.classList.contains('calc-dosage-input')) {
+                calculateCalcAll(nextVisitDateInput.value ? 'date' : 'days');
+            }
+        });
+
+        addMedBtn.addEventListener('click', () => {
+            const items = medicationsContainer.querySelectorAll('.calc-medication-item');
+            if (items.length === 0) return;
+            const newItem = items[0].cloneNode(true);
+            newItem.querySelector('.calc-med-name').value = '';
+            newItem.querySelector('.calc-leftover-input').value = 0;
+            newItem.querySelector('.calc-dosage-input').value = 1;
+            newItem.querySelector('.calc-lock-leftover').checked = false;
+            newItem.querySelector('.calc-lock-dosage').checked = false;
+
+            medicationsContainer.appendChild(newItem);
+            updateCalcMedicationLabels();
+            calculateCalcAll(nextVisitDateInput.value ? 'date' : 'days');
+        });
+
+        medicationsContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('calc-remove-med-btn')) {
+                const items = medicationsContainer.querySelectorAll('.calc-medication-item');
+                if (items.length > 1) {
+                    e.target.closest('.calc-medication-item').remove();
+                    updateCalcMedicationLabels();
+                    calculateCalcAll(nextVisitDateInput.value ? 'date' : 'days');
+                }
+            }
+        });
+
+        if (prevMonthBtn) {
+            prevMonthBtn.addEventListener('click', () => {
+                calcCalendarDate.setMonth(calcCalendarDate.getMonth() - 1);
+                renderCalcCalendar();
+            });
+        }
+        if (nextMonthBtn) {
+            nextMonthBtn.addEventListener('click', () => {
+                calcCalendarDate.setMonth(calcCalendarDate.getMonth() + 1);
+                renderCalcCalendar();
+            });
+        }
+    }
+
+    function setCalcDefaults() {
+        const startDateInput = document.getElementById('calc-startDate');
+        const nextVisitDateInput = document.getElementById('calc-nextVisitDate');
+        const excludeEndDayCheckbox = document.getElementById('calc-excludeEndDay');
+        const prescriptionDaysInput = document.getElementById('calc-prescriptionDays');
+        const medicationsContainer = document.getElementById('calc-medicationsContainer');
+        const endDateDisplay = document.getElementById('calc-endDate');
+
+        if (!startDateInput) return;
+
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        startDateInput.valueAsDate = tomorrow;
+
+        const lockNextVisit = document.getElementById('calc-lockNextVisit');
+        if (!lockNextVisit || !lockNextVisit.checked) {
+            nextVisitDateInput.value = '';
+            if (nextVisitDateInput.type === 'date') {
+                nextVisitDateInput.type = 'text';
+            }
+        }
+
+        prescriptionDaysInput.value = 0;
+        endDateDisplay.textContent = '--/--';
+        if (excludeEndDayCheckbox) excludeEndDayCheckbox.checked = false;
+
+        const items = medicationsContainer.querySelectorAll('.calc-medication-item');
+        for (let i = 1; i < items.length; i++) items[i].remove();
+
+        const firstItem = items[0];
+        firstItem.querySelector('.calc-med-name').value = '';
+        if (!firstItem.querySelector('.calc-lock-leftover').checked) {
+            firstItem.querySelector('.calc-leftover-input').value = 0;
+        }
+        if (!firstItem.querySelector('.calc-lock-dosage').checked) {
+            firstItem.querySelector('.calc-dosage-input').value = 1;
+        }
+        updateCalcMedicationLabels();
+
+        calcCalendarDate = new Date();
+        calculateCalcAll('date');
+    }
+
+    function updateCalcMedicationLabels() {
+        const medicationsContainer = document.getElementById('calc-medicationsContainer');
+        if (!medicationsContainer) return;
+        const items = medicationsContainer.querySelectorAll('.calc-medication-item');
+        items.forEach((item, index) => {
+            item.querySelector('.calc-med-number').textContent = (index + 1) + '.';
+            const removeBtn = item.querySelector('.calc-remove-med-btn');
+            if (items.length > 1) {
+                removeBtn.style.display = 'inline-block';
+            } else {
+                removeBtn.style.display = 'none';
+            }
+        });
+    }
+
+    function setCalcText(el, val, skipUnit = false) {
+        if (!el) return;
+        if (skipUnit || isNaN(val)) {
+            el.innerHTML = val;
+        } else {
+            el.innerHTML = `${val}<span class="calc-r-unit">日</span>`;
+        }
+    }
+
+    function formatCalcDate(d) {
+        if (!d) return '--/--';
+        const w = ['日', '月', '火', '水', '木', '金', '土'][d.getDay()];
+        return `${d.getMonth() + 1}/${d.getDate()} (${w})`;
+    }
+
+    function normCalcDate(d) {
+        if (!d) return null;
+        const x = new Date(d);
+        x.setHours(0, 0, 0, 0);
+        return x;
+    }
+
+    function calculateCalcAll(mode = 'date') {
+        const startDateInput = document.getElementById('calc-startDate');
+        const nextVisitDateInput = document.getElementById('calc-nextVisitDate');
+        const excludeEndDayCheckbox = document.getElementById('calc-excludeEndDay');
+        const prescriptionDaysInput = document.getElementById('calc-prescriptionDays');
+        const daysUntilVisitDisplay = document.getElementById('calc-daysUntilVisit');
+        const daysCoveredDisplay = document.getElementById('calc-daysCovered');
+        const endDateDisplay = document.getElementById('calc-endDate');
+        const medicationsContainer = document.getElementById('calc-medicationsContainer');
+        const mainResultSection = document.getElementById('calc-mainResultSection');
+        const multiMedNotice = document.getElementById('calc-multiMedNotice');
+        const calendarSection = document.getElementById('calc-calendarSection');
+
+        if (!startDateInput || !prescriptionDaysInput || !medicationsContainer) return;
+
+        const startDateRaw = startDateInput.value;
+        if (!startDateRaw) return;
+        const startDate = normCalcDate(startDateRaw);
+
+        const excludeEndDay = excludeEndDayCheckbox ? excludeEndDayCheckbox.checked : false;
+        const items = medicationsContainer.querySelectorAll('.calc-medication-item');
+        const isMulti = items.length > 1;
+
+        if (isMulti) {
+            if (multiMedNotice) multiMedNotice.style.display = 'block';
+            if (calendarSection) calendarSection.style.display = 'none';
+            if (mainResultSection) mainResultSection.style.display = 'none';
+        } else {
+            if (multiMedNotice) multiMedNotice.style.display = 'none';
+            if (calendarSection) calendarSection.style.display = 'block';
+            if (mainResultSection) mainResultSection.style.display = 'block';
+        }
+
+        let daysDiffUntilVisit = 0;
+
+        if (mode === 'date') {
+            const nextVisitDateRaw = nextVisitDateInput.value;
+            if (nextVisitDateRaw) {
+                const nextVisitDate = normCalcDate(nextVisitDateRaw);
+                if (nextVisitDate <= startDate) {
+                    daysDiffUntilVisit = 0;
+                    prescriptionDaysInput.value = 0;
+                    if (!isMulti && endDateDisplay) endDateDisplay.textContent = '--/--';
+                } else {
+                    const timeDiff = nextVisitDate - startDate;
+                    const baseDaysDiff = Math.ceil(timeDiff / 864e5);
+                    daysDiffUntilVisit = excludeEndDay ? baseDaysDiff : baseDaysDiff + 1;
+                }
+            } else {
+                setCalcText(daysUntilVisitDisplay, '-', true);
+            }
+        } else {
+            const firstItem = items[0];
+            const leftover = parseInt(firstItem.querySelector('.calc-leftover-input').value) || 0;
+            const dosage = parseInt(firstItem.querySelector('.calc-dosage-input').value) || 1;
+            const daysCovered = Math.floor(leftover / dosage);
+            const prescriptionDaysGlobal = parseInt(prescriptionDaysInput.value) || 0;
+
+            const totalDuration = daysCovered + prescriptionDaysGlobal;
+            if (totalDuration > 0) {
+                daysDiffUntilVisit = totalDuration;
+
+                const nextVisit = new Date(startDate);
+                if (excludeEndDay) {
+                    nextVisit.setDate(nextVisit.getDate() + totalDuration);
+                } else {
+                    nextVisit.setDate(nextVisit.getDate() + totalDuration - 1);
+                }
+                nextVisitDateInput.valueAsDate = nextVisit;
+            } else {
+                daysDiffUntilVisit = 0;
+                if (endDateDisplay) endDateDisplay.textContent = '--/--';
+            }
+        }
+
+        if (nextVisitDateInput.value || mode === 'days') {
+            setCalcText(daysUntilVisitDisplay, daysDiffUntilVisit);
+        }
+
+        items.forEach((item, index) => {
+            const leftover = parseInt(item.querySelector('.calc-leftover-input').value) || 0;
+            const dosage = parseInt(item.querySelector('.calc-dosage-input').value) || 1;
+            const daysCovered = Math.floor(leftover / dosage);
+
+            item.querySelector('.calc-med-covered-days').textContent = daysCovered;
+
+            let targetPrescriptionDays = 0;
+            if (daysDiffUntilVisit > 0) {
+                targetPrescriptionDays = daysDiffUntilVisit - daysCovered;
+                if (targetPrescriptionDays < 0) targetPrescriptionDays = 0;
+            }
+
+            item.querySelector('.calc-med-prescription-days').textContent = targetPrescriptionDays;
+
+            if (index === 0) {
+                if (!isMulti) setCalcText(daysCoveredDisplay, daysCovered);
+
+                if (mode === 'date' && nextVisitDateInput.value) {
+                    prescriptionDaysInput.value = targetPrescriptionDays;
+                }
+
+                const totalDays = daysCovered + (parseInt(prescriptionDaysInput.value) || targetPrescriptionDays);
+                const endDate = new Date(startDate);
+                endDate.setDate(endDate.getDate() + totalDays - 1);
+
+                if (!isMulti && endDateDisplay) {
+                    if (totalDays > 0) {
+                        endDateDisplay.textContent = formatCalcDate(endDate);
+                    } else {
+                        endDateDisplay.textContent = '--/--';
+                    }
+                }
+            }
+        });
+
+        if (!isMulti) {
+            renderCalcCalendar();
+        }
+    }
+
+    function renderCalcCalendar() {
+        const calendarSection = document.getElementById('calc-calendarSection');
+        const calendarGrid = document.getElementById('calc-calendarGrid');
+        const currentMonthYearDisplay = document.getElementById('calc-currentMonthYear');
+        const startDateInput = document.getElementById('calc-startDate');
+        const nextVisitDateInput = document.getElementById('calc-nextVisitDate');
+        const medicationsContainer = document.getElementById('calc-medicationsContainer');
+
+        if (!calendarSection || !calendarGrid || !currentMonthYearDisplay) return;
+        if (calendarSection.style.display === 'none') return;
+
+        calendarGrid.innerHTML = '';
+        const year = calcCalendarDate.getFullYear();
+        const month = calcCalendarDate.getMonth();
+        currentMonthYearDisplay.textContent = `${year}年 ${month + 1}月`;
+
+        ['日', '月', '火', '水', '木', '金', '土'].forEach(d => {
+            const el = document.createElement('div');
+            el.className = 'calc-cal-head';
+            el.textContent = d;
+            calendarGrid.appendChild(el);
+        });
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        for (let i = 0; i < firstDay; i++) {
+            const el = document.createElement('div');
+            el.className = 'calc-cal-day';
+            calendarGrid.appendChild(el);
+        }
+
+        const startDate = startDateInput.value ? normCalcDate(startDateInput.value) : null;
+        const nextVisitDate = nextVisitDateInput.value ? normCalcDate(nextVisitDateInput.value) : null;
+
+        const firstItem = medicationsContainer.querySelector('.calc-medication-item');
+        let daysCovered = 0;
+        if (firstItem) {
+            const leftover = parseInt(firstItem.querySelector('.calc-leftover-input').value) || 0;
+            const dosage = parseInt(firstItem.querySelector('.calc-dosage-input').value) || 1;
+            daysCovered = Math.floor(leftover / dosage);
+        }
+
+        const today = normCalcDate(new Date());
+
+        for (let d = 1; d <= daysInMonth; d++) {
+            const el = document.createElement('div');
+            el.className = 'calc-cal-day';
+            el.textContent = d;
+            const thisDate = new Date(year, month, d);
+
+            if (thisDate.getTime() === today.getTime()) el.classList.add('today');
+
+            if (startDate && nextVisitDate) {
+                const offset = Math.ceil((thisDate - startDate) / 864e5);
+                if (thisDate.getTime() === nextVisitDate.getTime()) {
+                    el.classList.add('visit-date');
+                } else if (thisDate.getTime() === startDate.getTime()) {
+                    el.classList.add('start-date');
+                } else if (thisDate > startDate && thisDate < nextVisitDate) {
+                    el.classList.add(offset >= 0 && offset < daysCovered ? 'covered' : 'prescription');
+                }
+            } else if (startDate && !nextVisitDate) {
+                if (thisDate.getTime() === startDate.getTime()) {
+                    el.classList.add('start-date');
+                } else if (thisDate > startDate) {
+                    const offset = Math.floor((thisDate - startDate) / 864e5);
+                    if (offset < daysCovered) el.classList.add('covered');
+                }
+            }
+            calendarGrid.appendChild(el);
+        }
     }
 
     function getFreqClass(freq) {
