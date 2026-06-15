@@ -265,14 +265,43 @@ const DrugSearch = (() => {
             allStores.forEach(s => { storeMap[s.storeIndex] = s.storeName; });
 
             // 薬品名でフィルタ → 店舗ごとに集計
-            const resultMap = new Map(); // drugName → { stores: Map<storeIndex, {storeName, stockQty, shipFreq}> }
+            const resultMap = new Map(); // drugName → { stores: Map<storeIndex, {storeName, stockQty, shipFreq}>, genClass }
+
+            // あいまい検索の有効フラグ（チェックボックス要素があればその設定に従い、なければ常にON）
+            const fuzzySearchChecked = document.getElementById('chk-fuzzy-search')?.checked ?? true;
+
+            // まず部分一致でヒットする薬品と、そのdrugCodeを収集
+            const matchedDrugNames = new Set();
+            const matchedC9Codes = new Set();
 
             for (const rec of allInventory) {
                 if (!rec.drugName) continue;
 
-                // 薬品名の部分一致チェック
                 const recNameKana = hiraToKana(rec.drugName.toLowerCase());
-                if (!recNameKana.includes(termKana)) continue;
+                if (recNameKana.includes(termKana)) {
+                    matchedDrugNames.add(rec.drugName);
+                    if (rec.drugCode && rec.drugCode.length >= 9) {
+                        matchedC9Codes.add(rec.drugCode.substring(0, 9));
+                    }
+                }
+            }
+
+            // 収集したデータに基づき、相互検索を含めて集計
+            for (const rec of allInventory) {
+                if (!rec.drugName) continue;
+
+                // 通常の部分一致、または先頭9桁コードが一致する場合に対象とする
+                let isMatch = matchedDrugNames.has(rec.drugName);
+                if (!isMatch && fuzzySearchChecked && matchedC9Codes.size > 0) {
+                    if (rec.drugCode && rec.drugCode.length >= 9) {
+                        const recC9 = rec.drugCode.substring(0, 9);
+                        if (matchedC9Codes.has(recC9)) {
+                            isMatch = true;
+                        }
+                    }
+                }
+
+                if (!isMatch) continue;
 
                 // 店舗フィルタ
                 if (selectedStoreIndices.size > 0 && !selectedStoreIndices.has(rec.storeIndex)) continue;
@@ -285,6 +314,7 @@ const DrugSearch = (() => {
                         unitPrice: rec.unitPrice || 0,
                         unit: rec.unit || '',
                         regulation: rec.regulation || '',
+                        genClass: rec.genClass || '',
                         stores: new Map()
                     });
                 }
@@ -319,6 +349,7 @@ const DrugSearch = (() => {
                     unitPrice: data.unitPrice,
                     unit: data.unit,
                     regulation: data.regulation,
+                    genClass: data.genClass,
                     stores: storesArr,
                     totalStock,
                     inStockCount
@@ -382,11 +413,14 @@ const DrugSearch = (() => {
                 regulationBadge = '<span class="search-reg-badge psychotropic">向精神薬</span>';
             }
 
+            // 先発品【先】ラベル
+            const parentLabel = item.genClass === '先' ? '【先】' : '';
+
             // ヘッダー
             card.innerHTML = `
                 <div class="search-card-header" data-drug="${escapeHtml(item.drugName)}">
                     <div class="search-card-title">
-                        <span class="search-drug-name">${escapeHtml(Admin.toFullWidth(item.drugName))}</span>
+                        <span class="search-drug-name">${parentLabel}${escapeHtml(Admin.toFullWidth(item.drugName))}</span>
                         ${regulationBadge}
                     </div>
                     <div class="search-card-meta">

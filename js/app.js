@@ -203,11 +203,15 @@ const App = (() => {
                 if (!activeStoreSet.has(rec.storeIndex)) continue;
 
                 if (!drugMap.has(rec.drugName)) {
-                    drugMap.set(rec.drugName, new Map());
+                    drugMap.set(rec.drugName, {
+                        drugCode: rec.drugCode || '',
+                        genClass: rec.genClass || '',
+                        stores: new Map()
+                    });
                 }
 
-                const storeData = drugMap.get(rec.drugName);
-                storeData.set(rec.storeIndex, {
+                const entry = drugMap.get(rec.drugName);
+                entry.stores.set(rec.storeIndex, {
                     sn: storeNameMap[rec.storeIndex],
                     h: (rec.stockQty || 0) > 0,
                     f: rec.shipFreq || '／'
@@ -215,14 +219,23 @@ const App = (() => {
             }
 
             const drugs = [];
-            for (const [drugName, storesMap] of drugMap) {
-                const storesArr = Array.from(storesMap.values())
+            for (const [drugName, data] of drugMap) {
+                const storesArr = Array.from(data.stores.values())
                     .sort((a, b) => a.sn.localeCompare(b.sn, 'ja'));
 
-                drugs.push({
+                const drugEntry = {
                     n: drugName,
                     s: storesArr
-                });
+                };
+                // 先頭9桁コード: 先発品⇔後発品の紐付け用
+                if (data.drugCode && data.drugCode.length >= 9) {
+                    drugEntry.c9 = data.drugCode.substring(0, 9);
+                }
+                // 後発区分: 「先」の場合のみ付与
+                if (data.genClass === '先') {
+                    drugEntry.g = '先';
+                }
+                drugs.push(drugEntry);
             }
             drugs.sort((a, b) => a.n.localeCompare(b.n, 'ja'));
 
@@ -951,10 +964,30 @@ const App = (() => {
         const fuzzySearchChecked = document.getElementById('chk-fuzzy-search')?.checked ?? true;
         const normalizedKeywords = selectedSearchDrugs.map(k => normalizeDrugName(k, fuzzySearchChecked));
 
-        const results = drugData.filter(d => {
+        // ステップ1: 通常の部分一致検索
+        let results = drugData.filter(d => {
             const normalizedDrug = normalizeDrugName(d.n, fuzzySearchChecked);
             return normalizedKeywords.some(k => normalizedDrug.includes(k));
         });
+
+        // ステップ2: あいまい検索ON時、先発品⇔後発品の相互検索（先頭9桁コードで紐付け）
+        if (fuzzySearchChecked && results.length > 0) {
+            // ヒットした薬品のc9コードを収集
+            const hitC9Codes = new Set();
+            results.forEach(d => {
+                if (d.c9) hitC9Codes.add(d.c9);
+            });
+
+            // c9コードがある場合、同じc9を持つ全薬品を追加
+            if (hitC9Codes.size > 0) {
+                const existingNames = new Set(results.map(d => d.n));
+                const additionalDrugs = drugData.filter(d => {
+                    if (existingNames.has(d.n)) return false;  // 既にヒット済み
+                    return d.c9 && hitC9Codes.has(d.c9);
+                });
+                results = results.concat(additionalDrugs);
+            }
+        }
 
         if (currentViewMode === 'and' && selectedSearchDrugs.length >= 2) {
             renderStoreCentricResults(results);
@@ -1023,7 +1056,7 @@ const App = (() => {
             card.innerHTML = `
                 <div class="result-header">
                     <div class="result-title-row">
-                        <span class="result-drug-name">${escapeHtml(drug.n)}</span>
+                        <span class="result-drug-name">${drug.g === '先' ? '【先】' : ''}${escapeHtml(drug.n)}</span>
                         <span class="result-toggle">▼</span>
                     </div>
                     <div class="result-meta">
@@ -1102,7 +1135,8 @@ const App = (() => {
                         drugDetails.push({
                             drugName: drug.n,
                             freq: storeStatus ? storeStatus.f : '／',
-                            hasStock: true
+                            hasStock: true,
+                            genClass: drug.g || ''
                         });
                     });
                 } else {
@@ -1156,7 +1190,7 @@ const App = (() => {
                 const freqClass = getFreqClass(d.freq);
                 return `
                     <div class="store-centric-drug-row">
-                        <span class="store-centric-drug-name">${escapeHtml(d.drugName)}</span>
+                        <span class="store-centric-drug-name">${d.genClass === '先' ? '【先】' : ''}${escapeHtml(d.drugName)}</span>
                         <span class="store-stock-badge in-stock">在庫あり</span>
                         <span class="store-freq ${freqClass}">${escapeHtml(d.freq)}</span>
                     </div>
