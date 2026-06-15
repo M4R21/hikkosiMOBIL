@@ -314,7 +314,8 @@ const Hikitori = (() => {
                     unitPrice: data.unitPrice,
                     bestFreq,
                     storeCount: data.otherStores.length,
-                    stores: sortedStores
+                    stores: sortedStores,
+                    genClass: sampleRec ? (sampleRec.genClass || '') : ''
                 });
             }
 

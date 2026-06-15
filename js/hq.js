@@ -100,7 +100,8 @@ const HQ = (() => {
                 fudouLabel: Matching.getFudouLabel(inv.fudouClass),
                 shipFreq: inv.shipFreq,
                 isExcluded,
-                candidateText
+                candidateText,
+                genClass: inv.genClass || ''
             });
         }
 
@@ -261,7 +262,7 @@ const HQ = (() => {
 
         const pdfData = sorted.map(row => ({
             storeName: row.storeName,
-            drugName: row.drugName,
+            drugName: Admin.toFullWidth(row.drugName),
             stockQty: row.stockQty,
             stockAmount: row.stockAmount,
             fudouLabel: row.fudouLabel,

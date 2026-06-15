@@ -104,6 +104,14 @@ const Store = (() => {
     async function loadExistingMoveRequests() {
         const existing = await DB.getMoveRequestsByStore(currentStoreIndex);
         if (existing && existing.length > 0) {
+            // 既存レコードにgenClassを補完する
+            for (const item of existing) {
+                if (item.genClass === undefined) {
+                    const invRecs = await DB.getInventoryByDrug(item.drugName);
+                    const isParent = invRecs.some(r => r.genClass === '先');
+                    item.genClass = isParent ? '先' : '';
+                }
+            }
             moveItems = existing;
             await renderResults();
             document.getElementById('store-results').classList.remove('hidden');
@@ -246,6 +254,7 @@ const Store = (() => {
                     candidateStatus: result.status,
                     candidateMessage: result.message,
                     selectedCandidate: result.candidates.length > 0 ? result.candidates[0].storeName : '',
+                    genClass: result.genClass || '',
                     createdAt: new Date().toISOString()
                 };
 
@@ -688,6 +697,7 @@ const Store = (() => {
                 candidateStatus: result.status,
                 candidateMessage: result.message,
                 selectedCandidate: result.candidates.length > 0 ? result.candidates[0].storeName : '',
+                genClass: result.genClass || '',
                 createdAt: new Date().toISOString()
             };
 
@@ -711,6 +721,10 @@ const Store = (() => {
         const drugName = Admin.normalizeDrugName(drugNameRaw);
         
         try {
+            // 同一薬品のgenClassを取得
+            const invRecs = await DB.getInventoryByDrug(drugName);
+            const isParent = invRecs.some(r => r.genClass === '先');
+
             // 引き取り先を検索済みの状態としてオブジェクトを作成
             const item = {
                 storeIndex: currentStoreIndex,
@@ -725,6 +739,7 @@ const Store = (() => {
                 candidateStatus: 'ok',
                 candidateMessage: 'OK',
                 selectedCandidate: targetStoreName,
+                genClass: isParent ? '先' : '',
                 createdAt: new Date().toISOString()
             };
 
