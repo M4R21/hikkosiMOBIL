@@ -36,6 +36,10 @@ const App = (() => {
     let minMatchCount = 0; // 0 = 全品目一致（デフォルト）
     let isMinMatchUserSelected = false; // ユーザーが手動で最低一致数を選んだかどうかのフラグ
 
+    // ===== フィルタリング＆ソート =====
+    let currentFilter = 'all'; // 'all', 'brand', 'generic'
+    let currentSort = 'freq'; // 'name', 'freq'
+
     // ===== 処方日数計算用データ =====
     let calcCalendarDate = new Date();
 
@@ -100,6 +104,25 @@ const App = (() => {
             minMatchSelect.addEventListener('change', () => {
                 minMatchCount = parseInt(minMatchSelect.value, 10) || 0;
                 isMinMatchUserSelected = true;
+                doSearch();
+            });
+        }
+
+        // フィルタリングボタンイベント
+        document.querySelectorAll('.filter-pill').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentFilter = btn.dataset.filter;
+                document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                doSearch();
+            });
+        });
+
+        // ソートセレクタイベント
+        const sortSelect = document.getElementById('sort-select');
+        if (sortSelect) {
+            sortSelect.addEventListener('change', () => {
+                currentSort = sortSelect.value;
                 doSearch();
             });
         }
@@ -989,6 +1012,16 @@ const App = (() => {
             }
         }
 
+        // ステップ3: フィルタリング適用
+        if (currentFilter === 'brand') {
+            results = results.filter(d => d.g === '先');
+        } else if (currentFilter === 'generic') {
+            results = results.filter(d => d.g !== '先');
+        }
+
+        // ステップ4: ソート適用（薬品カード自体は常に薬品名の50音順）
+        results.sort((a, b) => a.n.localeCompare(b.n, 'ja'));
+
         if (currentViewMode === 'and' && selectedSearchDrugs.length >= 2) {
             renderStoreCentricResults(results);
         } else {
@@ -1034,9 +1067,19 @@ const App = (() => {
             else if (inStockCount > 0) badgeClass = 'has-some';
 
             const sortedStores = [...filteredStores].sort((a, b) => {
+                // まず在庫あり(h)を優先
                 if (a.h !== b.h) return a.h ? -1 : 1;
+
+                if (currentSort === 'freq') {
+                    // 出庫頻度順（降順）
+                    const scoreA = getFreqScore(a.f);
+                    const scoreB = getFreqScore(b.f);
+                    if (scoreB !== scoreA) return scoreB - scoreA;
+                }
+                // 店舗名順
                 return a.sn.localeCompare(b.sn, 'ja');
             });
+
 
             const storeRows = sortedStores.map(s => {
                 const rowClass = s.h ? 'has-stock' : 'no-stock';
@@ -1155,8 +1198,28 @@ const App = (() => {
             }
         });
 
-        // 一致数が多い順に並べ替え
-        storeResults.sort((a, b) => b.matchedCount - a.matchedCount);
+        // 各店舗の総出庫頻度スコアを計算
+        storeResults.forEach(store => {
+            store.totalFreqScore = store.drugs.reduce((sum, d) => sum + getFreqScore(d.freq), 0);
+        });
+
+        // 並べ替え
+        if (currentSort === 'freq') {
+            // 出庫頻度の合計値が多い順（同点の場合は一致品目数順、さらに同点なら店舗名順）
+            storeResults.sort((a, b) => {
+                if (b.totalFreqScore !== a.totalFreqScore) return b.totalFreqScore - a.totalFreqScore;
+                if (b.matchedCount !== a.matchedCount) return b.matchedCount - a.matchedCount;
+                return a.storeName.localeCompare(b.storeName, 'ja');
+            });
+        } else {
+            // 店舗名順
+            storeResults.sort((a, b) => {
+                const nameComp = a.storeName.localeCompare(b.storeName, 'ja');
+                if (nameComp !== 0) return nameComp;
+                return b.matchedCount - a.matchedCount;
+            });
+        }
+
 
         // 表示件数を設定
         if (requiredCount === totalKeywords) {
@@ -1313,8 +1376,18 @@ const App = (() => {
         if (freq === '◎') return 'freq-excellent';
         if (freq === '〇' || freq === '○') return 'freq-good';
         if (freq === '△') return 'freq-low';
+        if (freq === '▲') return 'freq-warning';
         return 'freq-none';
     }
+
+    function getFreqScore(freq) {
+        if (freq === '◎') return 4;
+        if (freq === '〇' || freq === '○') return 3;
+        if (freq === '△') return 2;
+        if (freq === '▲') return 1;
+        return 0;
+    }
+
 
     // ===== 処方日数計算機能ロジック =====
     let isCalcInitialized = false;

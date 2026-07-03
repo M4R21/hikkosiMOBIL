@@ -103,6 +103,21 @@
                     <div class="results-header">
                         <span class="results-count" id="results-count"></span>
                     </div>
+                    <!-- フィルタ＆ソートバー -->
+                    <div class="filter-sort-bar" id="filter-sort-bar">
+                        <div class="filter-pills">
+                            <button class="filter-pill active" id="filter-all" data-filter="all">すべて</button>
+                            <button class="filter-pill" id="filter-brand" data-filter="brand">先発品</button>
+                            <button class="filter-pill" id="filter-generic" data-filter="generic">後発品</button>
+                        </div>
+                        <div class="sort-selector">
+                            <label class="sort-label" for="sort-select">並び替え</label>
+                            <select id="sort-select" class="sort-select">
+                                <option value="freq" selected>出庫頻度順</option>
+                                <option value="name">店舗名順</option>
+                            </select>
+                        </div>
+                    </div>
                     <div id="results-list"></div>
                 </div>
 

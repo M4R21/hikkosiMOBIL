@@ -353,6 +353,82 @@ body {
     font-weight: 500;
 }
 
+/* フィルタ＆ソートバー */
+.filter-sort-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 8px 10px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    flex-wrap: wrap;
+}
+
+.filter-pills {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.filter-pill {
+    padding: 5px 12px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border: 1.5px solid var(--border-color);
+    border-radius: 20px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.filter-pill:hover {
+    border-color: var(--border-accent);
+    color: var(--text-primary);
+}
+
+.filter-pill.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+.sort-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.sort-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.sort-select {
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    border: 1.5px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: auto;
+    appearance: auto;
+}
+
+.sort-select:focus {
+    border-color: var(--accent);
+}
+
 /* 結果カード */
 .result-card {
     background: var(--bg-card);
